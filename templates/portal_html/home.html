@@ -1,7 +1,12 @@
 {% extends 'base.html' %}
 
-{% block title %}Про нас{% endblock %}
+{% block title %}Головна{% endblock %}
 
 {% block body %}
-  <h1>Best Group Portal</h1>
+<h1>Best Group Portal</h1>
+{% if user.is_authenticated %}
+  <p>Привіт, {{ user.first_name }}!</p>
+{% else %}
+  <p>Ви не зареєстровані. <a href="{% url 'register' %}">Реєструйтесь тут!</a></p>
+{% endif %}
 {% endblock %}
