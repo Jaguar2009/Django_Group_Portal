@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+
+{% block title %}Додати апдейт{% endblock %}
+
+{% block body %}
+<form method="POST" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">Додати апдейт</button>
+</form>
+
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block title %}Створити новину{% endblock %}
+
+{% block body %}
+<h2>Створити новину</h2>
+
+<form method="POST" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="form-group">
+        <label for="id_title">Назва:</label>
+        {{ form.title }}
+    </div>
+    <div class="form-group">
+        <label for="id_description">Опис:</label>
+        {{ form.description }}
+    </div>
+    <div class="form-group">
+        <label for="id_image">Зображення:</label>
+        {{ form.image }}
+    </div>
+    <button type="submit" class="btn btn-primary">Створити новину</button>
+</form>
+
+{% endblock %}

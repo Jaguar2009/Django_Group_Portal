@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+
+{% block title %}Головна{% endblock %}
+
+{% block body %}
+<h2>Створення відповідей для опитування: {{ survey.title }}</h2>
+<form method="POST" enctype="multipart/form-data">
+    {% csrf_token %}
+    {% for form in forms %}
+        <div class="form-group">
+            <label>{{ form.prefix }}</label>  <!-- Додайте заголовок для кожної форми -->
+            {{ form.as_p }}
+        </div>
+    {% endfor %}
+    <button type="submit" class="btn btn-primary">Завершити</button>
+</form>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block title %}Редагувати Апдейт{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <h2>Редагувати Апдейт</h2>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-primary">Зберегти зміни</button>
+        <a href="{% url 'forum_post_detail' update.forum_post.id %}" class="btn btn-secondary">Скасувати</a>
+    </form>
+</div>
+{% endblock %}

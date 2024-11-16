@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+
+{% block title %}Новини{% endblock %}
+
+{% block body %}
+<h2>Оголошення та новини</h2>
+
+{% if notifications %}
+    <div class="list-group">
+        {% for notification in notifications %}
+            <div class="list-group-item">
+                <h5>Назва: {{ notification.title }}</h5>
+                <p>Опис:{{ notification.description }}</p>
+                {% if notification.image %}
+                    <img src="{{ notification.image.url }}" alt="{{ notification.title }}" style="width: 100px; height: auto;">
+                {% endif %}
+                <p><strong>Дата створення:</strong> {{ notification.created_at|date:"d.m.Y H:i" }}</p>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <p>Немає новин.</p>
+{% endif %}
+{% endblock %}

@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User  # Замініть на вашу модель користувача
+from .models import User, Survey, Question, Answer, Notification, ForumPost, Poll, Event, Question_Poll, Vote
 
 
 class UserAdmin(BaseUserAdmin):
@@ -25,3 +25,12 @@ class UserAdmin(BaseUserAdmin):
 
 # Реєструємо кастомного користувача
 admin.site.register(User, UserAdmin)
+admin.site.register(Survey)
+admin.site.register(Question)
+admin.site.register(Answer)
+admin.site.register(Notification)
+admin.site.register(ForumPost)
+admin.site.register(Poll)
+admin.site.register(Question_Poll)
+admin.site.register(Event)
+admin.site.register(Vote)

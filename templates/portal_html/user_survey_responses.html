@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block title %}Відповіді користувача на опитування: {{ survey.title }}{% endblock %}
+
+{% block body %}
+<h2>Відповіді користувача: {{ user_responses.0.user.username }} на опитування: {{ survey.title }}</h2>
+
+{% if user_responses %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Питання</th>
+                <th>Відповідь</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for response in user_responses %}
+                <tr>
+                    <td>{{ response.question.text }}</td>
+                    <td>{{ response.selected_answer.text }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p>Користувач не відповідав на це опитування.</p>
+{% endif %}
+{% endblock %}

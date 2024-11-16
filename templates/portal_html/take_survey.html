@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block title %}Пройти опитування{% endblock %}
+
+{% block body %}
+<h2>{{ survey.title }}</h2>
+<p>{{ survey.description }}</p>
+
+<form method="POST">
+    {% csrf_token %}
+    {% for question in form %}
+        <div class="form-group {% if question.errors %}has-error{% endif %}">
+            <h4>{{ question.label }}</h4>
+            {% for answer in question.field.queryset %}
+                <div>
+                    <input type="radio" id="{{ answer.id }}" name="{{ question.name }}" value="{{ answer.id }}"
+                           {% if answer.id == question.value %}checked{% endif %}>
+                    <label for="{{ answer.id }}">{{ answer.text }}</label>
+                </div>
+            {% endfor %}
+            {% if question.errors %}
+                <div class="text-danger">{{ question.errors.0 }}</div>
+            {% endif %}
+        </div>
+    {% endfor %}
+    <button type="submit" class="btn btn-primary">Пройти опитування</button>
+</form>
+{% endblock %}

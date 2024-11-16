@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block body %}
+<h1 xmlns="http://www.w3.org/1999/html">Портфоліо</h1>
+{% if projects %}
+    <ul>
+        {% for project in projects %}
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    {% if project.image %}
+                        <img src="{{ project.image.url }}" class="card-img-top" alt="{{ project.title }}">
+                    {% endif %}
+                    <div class="card-body">
+                        <h5 class="card-title">{{ project.title }}</h5>
+                        <p class="card-text">
+                            {{ project.content|truncatechars:20 }}...
+                        </p>
+                        <p class="text-muted"><strong>Автор:</strong> {{ project.author.first_name }}</p>
+                        <a href="{% url 'forum_post_detail' project.id %}" class="btn btn-primary">Переглянути деталі</a>
+                    </div>
+                    <div class="card-footer text-muted">
+                        Дата: {{ project.created_at|date:"d.m.Y H:i" }}
+                    </div>
+                    {% if project.files %}
+                        <p><a href="{{ project.files.url }}">Завантажити файл</a></p>
+                    {% endif %}
+                </div>
+            </div>
+
+        {% endfor %}
+    </ul>
+{% else %}
+    <p>У вас немає проектів у портфоліо.</p>
+{% endif %}
+{% endblock %}

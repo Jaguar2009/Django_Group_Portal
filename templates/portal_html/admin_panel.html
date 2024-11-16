@@ -4,5 +4,111 @@
 
 {% block body %}
 <h1>Ласкаво просимо до адміністративної панелі</h1>
-<p>Тут ви можете керувати ресурсами вашого проекту.</p>
+<a href="{% url 'create_survey' %}" class="btn btn-info">Створити опитування</a>
+<a href="{% url 'create_notification' %}" class="btn btn-info">Створити оголошення</a>
+
+<h3>Список опитувань</h3>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Назва</th>
+            <th>Опис</th>
+            <th>Додати зображення</th>
+            <th>Кількість питань</th>
+            <th>Кількість учасників</th>
+            <th>Діє до</th>
+            <th>Дії</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for survey in surveys %}
+            <tr>
+                <td>{{ survey.title }}</td>
+                <td>{{ survey.description }}</td>
+                <td>
+                    {% if survey.image %}
+                        <img src="{{ survey.image.url }}" alt="{{ survey.title }}" style="width: 100px; height: auto;">
+                    {% else %}
+                        Немає зображення
+                    {% endif %}
+                </td>
+                <td>{{ survey.question_count }}</td>
+                <td>{{ survey.participant_count }}</td>
+                <td>{{ survey.active_until|date:"d.m.Y H:i" }}</td>
+                <td>
+                    <a href="{% url 'survey_responses' survey.id %}" class="btn btn-info">Переглянути відповіді</a>
+                    <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteSurveyModal{{ survey.id }}">
+                        Видалити
+                    </button>
+
+                    <!-- Модальне вікно для підтвердження видалення опитування -->
+                    <div class="modal fade" id="deleteSurveyModal{{ survey.id }}" tabindex="-1" aria-labelledby="deleteSurveyModalLabel{{ survey.id }}" aria-hidden="true">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="deleteSurveyModalLabel{{ survey.id }}">Підтвердження видалення</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрити"></button>
+                                </div>
+                                <div class="modal-body">
+                                    Ви впевнені, що хочете видалити опитування "{{ survey.title }}"?
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Скасувати</button>
+                                    <a href="{% url 'delete_survey' survey.id %}" class="btn btn-danger">Видалити</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h2>Новини</h2>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Назва</th>
+            <th>Опис</th>
+            <th>Дата створення</th>
+            <th>Дії</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for notification in notifications %}
+            <tr>
+                <td>{{ notification.title }}</td>
+                <td>{{ notification.description }}</td>
+                <td>{{ notification.created_at|date:"d.m.Y H:i" }}</td>
+                <td>
+                    <!-- Кнопка для видалення новини, доступна тільки для адміністраторів або власника новини -->
+                    <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteNotificationModal{{ notification.id }}">
+                        Видалити
+                    </button>
+
+                    <!-- Модальне вікно для підтвердження видалення оголошення -->
+                    <div class="modal fade" id="deleteNotificationModal{{ notification.id }}" tabindex="-1" aria-labelledby="deleteNotificationModalLabel{{ notification.id }}" aria-hidden="true">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="deleteNotificationModalLabel{{ notification.id }}">Підтвердження видалення</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрити"></button>
+                                </div>
+                                <div class="modal-body">
+                                    Ви впевнені, що хочете видалити оголошення "{{ notification.title }}"?
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Скасувати</button>
+                                    <a href="{% url 'delete_notification' notification.id %}" class="btn btn-danger">Видалити</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
 {% endblock %}

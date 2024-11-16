@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block title %}Редагувати пост - {{ form.instance.title }}{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <h2>Редагувати пост</h2>
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-primary">Зберегти зміни</button>
+    </form>
+    <a href="{% url 'forum_post_detail' form.instance.id %}" class="btn btn-secondary mt-3">Назад до посту</a>
+</div>
+{% endblock %}

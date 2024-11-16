@@ -22,6 +22,10 @@
 
         <ul class="nav col-12 col-lg-auto me-lg-auto mb-2 justify-content-center mb-md-0">
             <li><a href="/home" class="nav-link px-2 link-body-emphasis">Головна</a></li>
+            <li><a href="/surveys" class="nav-link px-2 link-body-emphasis">Опитування</a></li>
+            <li><a href="/forum" class="nav-link px-2 link-body-emphasis">Форум</a></li>
+            <li><a href="/calendar" class="nav-link px-2 link-body-emphasis">Календар подій</a></li>
+            <li><a href="/poll" class="nav-link px-2 link-body-emphasis">Опитування</a></li>
             {% if request.user.status == 'admin' %}
                 <li><a href="{% url 'admin_panel' %}" class="nav-link px-2 link-body-emphasis">Адмін панель</a></li>
             {% endif %}
@@ -38,8 +42,10 @@
           <ul class="dropdown-menu text-small">
               <li><a class="dropdown-item" href="/register">Регестрація</a></li>
               <li><a class="dropdown-item" href="/login">Логін</a></li>
-              <li><a class="dropdown-item" href="/logout">Вихід</a></li>
-              <li><a class="dropdown-item" href="/delete_account">Видалити</a></li>
+              <li><a class="dropdown-item" href="/profile">Профіль</a></li>
+              <li><a class="dropdown-item" href="/notifications">Новини</a></li>
+              <li><a class="dropdown-item" href="/forum/create">Створити публікацію</a></li>
+              <li><a class="dropdown-item" href="/portfolio">Портфоліо</a></li>
           </ul>
         </div>
       </div>

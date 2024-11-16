@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+
+{% block title %}Відповіді Користувачів{% endblock %}
+
+{% block body %}
+<head>
+    <!-- Інші підключення стилів та скриптів -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .question-title {
+            text-align: center;  /* Вирівнювання заголовка по центру */
+            margin-top: 20px;    /* Відступ зверху */
+            margin-bottom: 10px;  /* Відступ знизу */
+        }
+        .chart-container {
+            display: flex;        /* Використання flexbox для вирівнювання графіків */
+            justify-content: center; /* Центрування графіків */
+            flex-direction: column; /* Вертикальне розміщення графіків */
+            align-items: center;   /* Центрування графіків по горизонталі */
+        }
+    </style>
+</head>
+
+<h2>Відповіді на опитування: {{ survey.title }}</h2>
+<h3>Графік відповідей на питання</h3>
+<div class="chart-container">
+    {% for question_text, data in chart_data.items %}
+        <h4 class="question-title">{{ question_text }}</h4>  <!-- Назва запитання, вирівняна по центру -->
+        <canvas id="chart-{{ forloop.counter }}" width="300" height="150"></canvas>  <!-- Зменшена ширина та висота -->
+        <script>
+            var ctx = document.getElementById('chart-{{ forloop.counter }}').getContext('2d');
+            var myChart = new Chart(ctx, {
+                type: 'bar', // Можна змінити на 'pie' або 'line' за потреби
+                data: {
+                    labels: {{ data.labels|safe }},
+                    datasets: [{
+                        data: {{ data.data|safe }},
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        </script>
+    {% endfor %}
+</div>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Користувач</th>
+            <th>Дії</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for user in users %}
+            <tr>
+                <td>
+                  <span>{{ user.first_name }}</span>
+                  <span style="margin-left: 10px;">{{ user.last_name }}</span>
+                  <span style="margin-left: 10px;">{{ user.email }}</span>
+                </td>
+                <td>
+                    <a href="{% url 'user_survey_answers' survey.id user.id %}" class="btn btn-primary">Переглянути відповіді</a>
+                </td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
