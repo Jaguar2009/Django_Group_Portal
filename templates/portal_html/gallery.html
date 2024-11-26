@@ -1,0 +1,57 @@
+
+{% extends 'base.html' %}
+
+{% block title %}Галерея{% endblock %}
+
+{% block body %}
+    <h1>Галерея</h1>
+        <a href="{% url 'upload_gallery_item' %}">Загрузить новый файл</a>
+        <form method="get" action="{% url 'gallery' %}" class="mb-4">
+        <div class="row">
+            <!-- Поле для поиска -->
+            <div class="col-md-6">
+                <label for="search">Поиск по названию</label>
+                <input type="text" name="search" id="search" class="form-control" placeholder="Введите название" value="{{ query }}">
+            </div>
+
+            <!-- Фильтр по типу файла -->
+            <div class="col-md-4">
+                <label for="file_type">Тип файла</label>
+                <select name="file_type" id="file_type" class="form-control">
+                    <option value="">Все</option>
+                    <option value="image" {% if file_type == 'image' %}selected{% endif %}>Изображения</option>
+                    <option value="video" {% if file_type == 'video' %}selected{% endif %}>Видео</option>
+                </select>
+            </div>
+
+            <!-- Кнопки для применения фильтров -->
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">Искать</button>
+            </div>
+        </div>
+    </form>
+
+   <div class="row">
+    {% for item in gallery_items %}
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                {% if item.file_type == 'image' %}
+                    <img src="{{ item.file.url }}" class="card-img-top" alt="{{ item.title }}">
+                {% elif item.file_type == 'video' %}
+                    <video controls class="card-img-top">
+                        <source src="{{ item.file.url }}" type="video/mp4">
+                    </video>
+                {% endif %}
+                <div class="card-body">
+                    <h5 class="card-title">{{ item.title }}</h5>
+                    <p class="card-text">{{ item.description }}</p>
+                    <a href="{% url 'gallery_item_detail' item.id %}" class="btn btn-primary">Подробнее</a>
+                </div>
+            </div>
+        </div>
+    {% empty %}
+        <p class="text-center">Постов не найдено.</p>
+    {% endfor %}
+</div>
+
+{% endblock %}

@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% block title %}Відповіді на голосування: {{ poll.title }}{% endblock %}
+
+{% block body %}
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .chart-container {
+            display: flex;
+            justify-content: center;
+            flex-direction: column;
+            align-items: center;
+        }
+    </style>
+</head>
+
+<h2>Результати голосування: {{ poll.title }}</h2>
+<div class="chart-container">
+    <h3>Графік голосів за кандидатів</h3>
+    <canvas id="poll-chart" width="400" height="200"></canvas>
+    <script>
+        var ctx = document.getElementById('poll-chart').getContext('2d');
+        var pollChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: {{ chart_data.labels|safe }},
+                datasets: [{
+                    label: 'Кількість голосів',
+                    data: {{ chart_data.data|safe }},
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    </script>
+</div>
+{% endblock %}

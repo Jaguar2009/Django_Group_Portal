@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block title %}Створити голосування{% endblock %}
+
+{% block body %}
+<h1>Створити нове голосування</h1>
+
+<form method="POST" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ poll_form.as_p }}
+
+    <h3>Кандидати</h3>
+    {% for i in candidate_range %}
+        <div>
+            <h4>Кандидат {{ forloop.counter }}</h4>
+            {{ candidate_form.as_p }}
+        </div>
+    {% endfor %}
+
+    <button type="submit">Створити голосування</button>
+</form>
+
+{% endblock %}

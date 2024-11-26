@@ -2,7 +2,8 @@
 
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
-from .models import User, Survey, Question, Answer, Notification, ForumPost, ForumAddition, Comment
+from .models import User, Survey, Question, Answer, Notification, ForumPost, ForumAddition, Comment, Event, Poll, \
+    Candidate, GalleryItem
 
 
 class CustomUserCreationForm(UserCreationForm):
@@ -100,5 +101,55 @@ class CommentForm(forms.ModelForm):
         }
 
 
-class VoteForm(forms.Form):
-    question_id = forms.IntegerField(widget=forms.HiddenInput())
+class EventForm(forms.ModelForm):
+    class Meta:
+        model = Event
+        fields = ['title', 'description', 'image', 'start_time', 'end_time']
+        widgets = {
+            'start_time': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+            'end_time': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+        }
+
+
+class EventEditForm(forms.ModelForm):
+    class Meta:
+        model = Event
+        fields = ['title', 'description', 'image', 'start_time', 'end_time']
+
+
+class PollForm(forms.ModelForm):
+    class Meta:
+        model = Poll
+        fields = ['title', 'description', 'end_date', 'image', 'candidate_count']
+
+
+class CandidateForm(forms.ModelForm):
+    class Meta:
+        model = Candidate
+        fields = ['name', 'description', 'image']
+
+
+class PollEditForm(forms.ModelForm):
+    class Meta:
+        model = Poll
+        fields = ['title', 'description', 'end_date', 'candidate_count', 'image']
+
+
+class CandidateEditForm(forms.ModelForm):
+    class Meta:
+        model = Candidate
+        fields = ['name', 'description', 'image']
+
+
+class GalleryItemForm(forms.ModelForm):
+    class Meta:
+        model = GalleryItem
+        fields = ['file_type', 'file', 'title', 'description']
+
+
+class AddFriendForm(forms.Form):
+    identifier = forms.CharField(
+        max_length=255,  # Максимальна довжина повинна підходити як для телефону, так і для email
+        label="Email",
+        widget=forms.TextInput(attrs={'placeholder': 'Введіть Email'})
+    )

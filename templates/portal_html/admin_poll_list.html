@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block title %}Список голосувань{% endblock %}
+
+{% block body %}
+<a href="{% url 'create_poll_step_1' %}" class="btn btn-info">Створити голосування</a>
+<h3 class="mt-4">Список голосувань</h3>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Назва</th>
+                <th>Опис</th>
+                <th>Дата завершення</th>
+                <th>Дії</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for poll in polls %}
+                <tr>
+                    <td>{{ poll.title }}</td>
+                    <td>{{ poll.description }}</td>
+                    <td>{{ poll.end_date|date:"d.m.Y" }}</td>
+                    <td>
+                        <a href="{% url 'poll_results' poll.id %}" class="btn btn-info btn-sm">Переглянути результати</a>
+                        <!-- Кнопка для відкриття модального вікна -->
+                        <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteModal{{ poll.id }}">
+                            Видалити
+                        </button>
+
+                        <!-- Модальне вікно для видалення голосування -->
+                        <div class="modal fade" id="deleteModal{{ poll.id }}" tabindex="-1" aria-labelledby="deleteModalLabel{{ poll.id }}" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="deleteModalLabel{{ poll.id }}">Підтвердження видалення</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрити"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        Ви впевнені, що хочете видалити голосування <strong>{{ poll.title }}</strong>?
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Скасувати</button>
+                                        <form method="post" action="{% url 'delete_poll' poll.id %}">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-danger">Видалити</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

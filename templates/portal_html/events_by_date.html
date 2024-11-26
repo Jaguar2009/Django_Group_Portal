@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block body %}
+<h2>Події на {{ date }}</h2>
+{% if events %}
+    <ul>
+        {% for event in events %}
+        <li>
+            <a href="{% url 'event_detail' event.id %}">{{ event.title }}</a>
+        </li>
+        {% endfor %}
+    </ul>
+{% else %}
+    <p>На цей день подій немає.</p>
+{% endif %}
+<a href="{% url 'calendar_view' %}" class="btn btn-secondary">Назад до календаря</a>
+{% endblock %}

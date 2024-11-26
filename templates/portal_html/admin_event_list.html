@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block title %}Список подій{% endblock %}
+
+{% block body %}
+<a href="{% url 'create_event' %}" class="btn btn-info">Створити подію</a>
+<h3 class="mt-4">Список подій</h3>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Назва</th>
+                <th>Опис</th>
+                <th>Час початку</th>
+                <th>Час закінчення</th>
+                <th>Дії</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for event in events %}
+                <tr>
+                    <td>{{ event.title }}</td>
+                    <td>{{ event.description }}</td>
+                    <td>{{ event.start_time|date:"d.m.Y H:i" }}</td>
+                    <td>{{ event.end_time|date:"d.m.Y H:i" }}</td>
+                    <td>
+                        <a href="{% url 'event_detail' event.id %}" class="btn btn-info btn-sm">Деталі</a>
+                        <a href="{% url 'edit_event' event.id %}" class="btn btn-warning btn-sm">Редагувати</a>
+                        <!-- Кнопка для відкриття модального вікна -->
+                        <button
+                            class="btn btn-danger btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#deleteModal{{ event.id }}">
+                            Видалити
+                        </button>
+
+                        <!-- Модальне вікно -->
+                        <div class="modal fade" id="deleteModal{{ event.id }}" tabindex="-1" aria-labelledby="deleteModalLabel{{ event.id }}" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="deleteModalLabel{{ event.id }}">Підтвердження видалення</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрити"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        Ви впевнені, що хочете видалити подію <strong>{{ event.title }}</strong>?
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Скасувати</button>
+                                        <form method="post" action="{% url 'delete_event' event.id %}">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-danger">Видалити</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

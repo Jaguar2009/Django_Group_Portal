@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+
+{% block title %}Створення голосування - крок 2{% endblock %}
+
+{% block body %}
+<h1>Додавання кандидатів для голосування "{{ poll.title }}"</h1>
+
+<form method="POST" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    {% for form in candidate_forms %}
+        <div>
+            {{ form.as_p }}
+        </div>
+    {% endfor %}
+
+    <button type="submit">Завершити створення</button>
+</form>
+
+{% endblock %}

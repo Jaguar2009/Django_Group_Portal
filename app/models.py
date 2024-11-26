@@ -34,6 +34,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     first_name = models.CharField(max_length=30)
     last_name = models.CharField(max_length=30)
     avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
+    friends = models.ManyToManyField('self', symmetrical=False, blank=True)
 
     # Додайте ці поля
     is_active = models.BooleanField(default=True)
@@ -144,47 +145,126 @@ class ForumAddition(models.Model):
 
 # Модель коментаря
 class Comment(models.Model):
-    forum_post = models.ForeignKey(ForumPost, on_delete=models.CASCADE, related_name="comments", verbose_name="Пост на форумі")
-    parent_comment = models.ForeignKey('self', on_delete=models.CASCADE, related_name="replies", null=True, blank=True, verbose_name="Батьківський коментар")
-    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="comments", verbose_name="Автор коментаря")
+    forum_post = models.ForeignKey(
+        ForumPost,
+        on_delete=models.CASCADE,
+        related_name="comments",
+        verbose_name="Пост на форумі",
+        null=True,
+        blank=True
+    )
+    gallery_item = models.ForeignKey(
+        'GalleryItem',
+        on_delete=models.CASCADE,
+        related_name="comments",
+        verbose_name="Об'єкт галереї",
+        null=True,
+        blank=True
+    )
+    parent_comment = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        related_name="replies",
+        null=True,
+        blank=True,
+        verbose_name="Батьківський коментар"
+    )
+    author = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="comments",
+        verbose_name="Автор коментаря"
+    )
     content = models.TextField(verbose_name="Текст коментаря")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата створення")
 
     def __str__(self):
-        return f"Коментар від {self.author} до '{self.forum_post.title}'"
+        if self.forum_post:
+            return f"Коментар від {self.author} до '{self.forum_post.title}'"
+        elif self.gallery_item:
+            return f"Коментар від {self.author} до '{self.gallery_item.title}'"
+        return f"Коментар від {self.author}"
 
 
 class Event(models.Model):
-    title = models.CharField(max_length=200)
-    description = models.TextField()
-    date = models.DateField()
-    time = models.TimeField()
-    image = models.ImageField(upload_to='event_images/', blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    title = models.CharField(max_length=255, verbose_name="Назва події")
+    description = models.TextField(verbose_name="Опис події")
+    image = models.ImageField(upload_to='event_images/', blank=True, null=True, verbose_name="Картинка події")
+    start_time = models.DateTimeField(verbose_name="Час початку події")
+    end_time = models.DateTimeField(verbose_name="Час закінчення події")
 
     def __str__(self):
         return self.title
 
 
 class Poll(models.Model):
-    title = models.CharField(max_length=200)
-    pub_date = models.DateTimeField('date published')
+    title = models.CharField(max_length=255)  # Назва голосування
+    description = models.TextField()  # Опис голосування
+    end_date = models.DateField()  # Дата завершення голосування
+    candidate_count = models.PositiveIntegerField(default=0)  # Кількість кандидатів
+    image = models.ImageField(upload_to='polls/', null=True, blank=True)  # Картинка для голосування
 
     def __str__(self):
         return self.title
 
-class Question_Poll(models.Model):
-    poll = models.ForeignKey(Poll, on_delete=models.CASCADE)
-    question_text = models.CharField(max_length=200)
-    votes = models.IntegerField(default=0)
+
+class Candidate(models.Model):
+    poll = models.ForeignKey(Poll, related_name='candidates', on_delete=models.CASCADE)
+    name = models.CharField(max_length=255)  # Ім'я кандидата
+    description = models.TextField()  # Опис кандидата
+    image = models.ImageField(upload_to='candidates/')  # Зображення кандидата
+    votes = models.PositiveIntegerField(default=0)  # Кількість голосів за кандидата
 
     def __str__(self):
-        return self.question_text
+        return self.name
+
 
 class Vote(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    question = models.ForeignKey(Question_Poll, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)  # Користувач, який голосує
+    poll = models.ForeignKey(Poll, related_name='votes', on_delete=models.CASCADE)  # Голосування
+    candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE)  # Кандидат
+    date = models.DateTimeField(auto_now_add=True)  # Дата голосування
 
-    class Meta:
-        unique_together = ('user', 'question')  # Ограничение: один пользователь может голосовать за один вопрос только один раз
+    def __str__(self):
+        return f'{self.user.username} voted for {self.candidate.name}'
+
+
+class Ban(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    message = models.TextField()
+    end_date = models.DateTimeField()
+    created_at = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"Ban for {self.user.email} until {self.end_date}"
+
+    def is_active(self):
+        return timezone.now() < self.end_date  # Перевірка, чи ще діє бан
+
+
+class GalleryItem(models.Model):
+    FILE_TYPES = [
+        ('image', 'Image'),
+        ('video', 'Video'),
+    ]
+    file_type = models.CharField(max_length=10, choices=FILE_TYPES, default='image')
+    file = models.FileField(upload_to='gallery/')
+    title = models.CharField(max_length=255, blank=True)
+    description = models.TextField(blank=True)
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='gallery_items')  # Заміна uploaded_by на author
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.title or f'Gallery Item #{self.id}'
+
+
+class FriendRequest(models.Model):
+    from_user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='sent_friend_requests', on_delete=models.CASCADE)
+    to_user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='received_friend_requests', on_delete=models.CASCADE)
+    status = models.CharField(max_length=20, choices=[('pending', 'Pending'), ('accepted', 'Accepted'), ('rejected', 'Rejected')], default='pending')
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+
+
+
+

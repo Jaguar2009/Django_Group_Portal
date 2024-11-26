@@ -4,22 +4,16 @@
 
 {% block body %}
 <h1>Best Group Portal</h1>
+
 {% if user.is_authenticated %}
-  <p>Привіт, {{ user.first_name }}!</p>
-  <h2>Майбутні події</h2>
-    <ul>
-        {% for event in events %}
-            <li>
-                <h2>{{ event.title }}</h2>
-                <p>{{ event.description }}</p>
-                <p><strong>Дата:</strong> {{ event.date }} <strong>Час:</strong> {{ event.time }}</p>
-                {% if event.image %}
-                    <img src="{{ event.image.url }}" alt="{{ event.title }}" style="max-width: 200px;">
-                {% endif %}
-            </li>
-        {% endfor %}
-    </ul>
+    <p>Привіт, {{ user.first_name }}!</p>
+
+    {% if custom_message %}
+        <div class="alert alert-info">
+            {{ custom_message }}
+        </div>
+    {% endif %}
 {% else %}
-  <p>Ви не зареєстровані. <a href="{% url 'register' %}">Реєструйтесь тут!</a></p>
+    <p>Ви не зареєстровані. <a href="{% url 'register' %}">Реєструйтесь тут!</a></p>
 {% endif %}
 {% endblock %}

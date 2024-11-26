@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ gallery_item.title }}{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <!-- Основна карточка елементу галереї -->
+    <div class="card mb-4">
+        {% if gallery_item.file_type == 'image' %}
+            <img src="{{ gallery_item.file.url }}" class="card-img-top" alt="{{ gallery_item.title }}">
+        {% elif gallery_item.file_type == 'video' %}
+            <video controls style="width: 100%;">
+                <source src="{{ gallery_item.file.url }}" type="video/mp4">
+            </video>
+        {% endif %}
+        <div class="card-body">
+            <h1 class="card-title">{{ gallery_item.title }}</h1>
+            <p class="card-text">{{ gallery_item.description }}</p>
+            <p class="text-muted">
+                <strong>Автор:</strong> {{ gallery_item.author.username }} |
+                <strong>Завантажено:</strong> {{ gallery_item.uploaded_at|date:"d.m.Y H:i" }}
+                {% if request.user == gallery_item.author %}
+                <a href="{% url 'edit_gallery_item' gallery_item.id %}" class="btn btn-primary">Редагувати пост</a>
+                <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">Видалити пост</button>
+            {% endif %}
+            </p>
+        </div>
+    </div>
+
+    <!-- Відображення коментарів та форма для додавання коментаря -->
+        <div class="comments-section">
+        {% for comment in comments %}
+            <div class="card mb-3">
+                <div class="card-body">
+                    <p><strong>{{ comment.author.username }}:</strong> {{ comment.content }}</p>
+                    <p class="text-muted"><small>Дата: {{ comment.created_at|date:"d.m.Y H:i" }}</small></p>
+
+                    {% if request.user == comment.author %}
+                        <!-- Кнопка для редагування -->
+                        <button class="btn btn-link btn-sm" data-bs-toggle="collapse" data-bs-target="#editCommentForm{{ comment.id }}">Редагувати</button>
+
+                        <!-- Форма для редагування коментаря -->
+                        <div id="editCommentForm{{ comment.id }}" class="collapse mt-2">
+                            <form method="post" action="{% url 'gallery_item_detail' gallery_item.id %}">
+                                {% csrf_token %}
+                                <textarea name="content" class="form-control" rows="2">{{ comment.content }}</textarea>
+                                <input type="hidden" name="comment_id" value="{{ comment.id }}">
+                                <button type="submit" class="btn btn-primary btn-sm mt-2">Зберегти зміни</button>
+                            </form>
+                        </div>
+
+                        <!-- Кнопка для видалення -->
+                        <button class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteCommentModal{{ comment.id }}">Видалити</button>
+
+                        <!-- Модальне вікно для підтвердження видалення -->
+                        <div class="modal fade" id="deleteCommentModal{{ comment.id }}" tabindex="-1" aria-labelledby="deleteCommentModalLabel{{ comment.id }}" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="deleteCommentModalLabel{{ comment.id }}">Підтвердження видалення</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрити"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        Ви впевнені, що хочете видалити цей коментар?
+                                    </div>
+                                    <div class="modal-footer">
+                                        <form method="post" action="{% url 'gallery_item_detail' gallery_item.id %}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="delete_comment_id" value="{{ comment.id }}">
+                                            <button type="submit" class="btn btn-danger">Видалити</button>
+                                        </form>
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Скасувати</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <!-- Форма відповіді на коментар -->
+                    <button class="btn btn-link btn-sm" data-bs-toggle="collapse" data-bs-target="#replyForm{{ comment.id }}">Відповісти</button>
+                    <div id="replyForm{{ comment.id }}" class="collapse mt-2">
+                        <form method="post" action="{% url 'gallery_item_detail' gallery_item.id %}">
+                            {% csrf_token %}
+                            {{ comment_form.as_p }}
+                            <input type="hidden" name="parent_comment_id" value="{{ comment.id }}">
+                            <button type="submit" class="btn btn-secondary btn-sm">Відправити</button>
+                        </form>
+                    </div>
+
+                    <!-- Відображення відповідей -->
+                    {% for reply in comment.replies.all %}
+                        <div class="card mt-2 ms-4">
+                            <div class="card-body">
+                                <p><strong>{{ reply.author.username }}:</strong> {{ reply.content }}</p>
+                                <p class="text-muted"><small>Дата: {{ reply.created_at|date:"d.m.Y H:i" }}</small></p>
+
+                                {% if request.user == reply.author %}
+                                    <!-- Кнопка для редагування відповіді -->
+                                    <button class="btn btn-link btn-sm" data-bs-toggle="collapse" data-bs-target="#editReplyForm{{ reply.id }}">Редагувати</button>
+
+                                    <!-- Форма для редагування відповіді -->
+                                    <div id="editReplyForm{{ reply.id }}" class="collapse mt-2">
+                                        <form method="post" action="{% url 'gallery_item_detail' gallery_item.id %}">
+                                            {% csrf_token %}
+                                            <textarea name="content" class="form-control" rows="2">{{ reply.content }}</textarea>
+                                            <input type="hidden" name="comment_id" value="{{ reply.id }}">
+                                            <button type="submit" class="btn btn-primary btn-sm mt-2">Зберегти зміни</button>
+                                        </form>
+                                    </div>
+
+                                    <!-- Кнопка для видалення -->
+                                    <button class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteReplyModal{{ reply.id }}">Видалити</button>
+
+                                    <!-- Модальне вікно для підтвердження видалення -->
+                                    <div class="modal fade" id="deleteReplyModal{{ reply.id }}" tabindex="-1" aria-labelledby="deleteReplyModalLabel{{ reply.id }}" aria-hidden="true">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title" id="deleteReplyModalLabel{{ reply.id }}">Підтвердження видалення</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрити"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    Ви впевнені, що хочете видалити цю відповідь?
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <form method="post" action="{% url 'gallery_item_detail' gallery_item.id %}">
+                                                        {% csrf_token %}
+                                                        <input type="hidden" name="delete_comment_id" value="{{ reply.id }}">
+                                                        <button type="submit" class="btn btn-danger">Видалити</button>
+                                                    </form>
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Скасувати</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% empty %}
+            <p>Немає коментарів для цього елементу.</p>
+        {% endfor %}
+    </div>
+
+
+
+    <!-- Форма для основного коментаря -->
+    <h3>Додати коментар</h3>
+    <form method="post">
+        {% csrf_token %}
+        {{ comment_form.as_p }}
+        <button type="submit" class="btn btn-primary">Додати коментар</button>
+    </form>
+
+
+
+    <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteModalLabel">Підтвердити видалення</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    Ви дійсно хочете видалити цей пост? Цю дію неможливо скасувати.
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Скасувати</button>
+                    <!-- Форма для підтвердження видалення -->
+                    <form method="POST" action="{% url 'delete_gallery_item' gallery_item.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger">Видалити</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

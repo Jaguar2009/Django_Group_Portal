@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User, Survey, Question, Answer, Notification, ForumPost, Poll, Event, Question_Poll, Vote
+from .models import User, Survey, Question, Answer, Notification, ForumPost, Event, Candidate
 
 
 class UserAdmin(BaseUserAdmin):
@@ -30,7 +30,5 @@ admin.site.register(Question)
 admin.site.register(Answer)
 admin.site.register(Notification)
 admin.site.register(ForumPost)
-admin.site.register(Poll)
-admin.site.register(Question_Poll)
 admin.site.register(Event)
-admin.site.register(Vote)
+admin.site.register(Candidate)

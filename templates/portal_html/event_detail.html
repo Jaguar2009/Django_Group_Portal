@@ -1,17 +1,12 @@
-<!DOCTYPE html>
-<html lang="uk">
-<head>
-    <meta charset="UTF-8">
-    <title>{{ event.title }}</title>
-</head>
-<body>
-    <div class="container mt-5">
-        <h1>{{ event.title }}</h1>
-        <p><strong>Дата:</strong> {{ event.date }}</p>
-        <p><strong>Опис:</strong> {{ event.description }}</p>
-        {% if event.image %}
-            <img src="{{ event.image.url }}" alt="{{ event.title }}" style="max-width: 300px;">
-        {% endif %}
-    </div>
-</body>
-</html>
+{% extends "base.html" %}
+
+{% block body %}
+<h2>{{ event.title }}</h2>
+<p>{{ event.description }}</p>
+<p><strong>Час початку:</strong> {{ event.start_time }}</p>
+<p><strong>Час закінчення:</strong> {{ event.end_time }}</p>
+{% if event.image %}
+    <img src="{{ event.image.url }}" alt="Картинка події" style="max-width: 100%;">
+{% endif %}
+<a href="{% url 'calendar_view' %}" class="btn btn-secondary">Назад до календаря</a>
+{% endblock %}

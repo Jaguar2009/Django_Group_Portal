@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block title %}Список опитувань{% endblock %}
+
+{% block body %}
+<a href="{% url 'create_survey' %}" class="btn btn-info">Створити опитування</a>
+<h3 class="mt-4">Список опитувань</h3>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Назва</th>
+                <th>Опис</th>
+                <th>Зображення</th>
+                <th>Кількість питань</th>
+                <th>Кількість учасників</th>
+                <th>Діє до</th>
+                <th>Дії</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for survey in surveys %}
+                <tr>
+                    <td>{{ survey.title }}</td>
+                    <td>{{ survey.description }}</td>
+                    <td>
+                        {% if survey.image %}
+                            <img src="{{ survey.image.url }}" alt="{{ survey.title }}" style="width: 100px; height: auto;">
+                        {% else %}
+                            Немає зображення
+                        {% endif %}
+                    </td>
+                    <td>{{ survey.question_count }}</td>
+                    <td>{{ survey.participant_count }}</td>
+                    <td>{{ survey.active_until|date:"d.m.Y H:i" }}</td>
+                    <td>
+                        <a href="{% url 'survey_responses' survey.id %}" class="btn btn-info btn-sm">Переглянути відповіді</a>
+                        <a href="{% url 'delete_survey' survey.id %}" class="btn btn-danger btn-sm">Видалити</a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

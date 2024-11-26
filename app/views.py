@@ -1,33 +1,135 @@
-from datetime import date
-
-from django.http import JsonResponse
+import base64
+from datetime import date, timedelta
+from django.db.models import Q
+from django.http import JsonResponse, HttpResponseForbidden
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, authenticate, logout
+from django.urls import reverse
+from django.views.generic import ListView
+
 from .forms import CustomUserCreationForm, LoginForm, AnswerForm, QuestionForm, SurveyForm, SurveyResponseForm, \
-    NotificationForm, ForumPostForm, CommentForm, ForumPostAdditionForm
+    NotificationForm, ForumPostForm, CommentForm, ForumPostAdditionForm, EventForm, EventEditForm, PollForm, \
+    CandidateForm, CandidateEditForm, PollEditForm, GalleryItemForm, AddFriendForm
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from .models import Survey, Question, SurveyResult, Answer, Notification, ForumPost, Comment, ForumAddition, Event, \
-    Vote, Poll, Question_Poll
+    Poll, Vote, Candidate, User, Ban, GalleryItem, FriendRequest
 from django.db import IntegrityError
+from datetime import datetime
+import calendar
+from collections import defaultdict
+from django.utils.timezone import now
 
 
 def home(request):
-    events = Event.objects.filter(date__gte=date.today()).order_by('date', 'time')
-    return render(request, 'portal_html/home.html', {'events': events})
+    ban_message = request.session.pop('ban_message', None)
+    return render(request, 'portal_html/home.html', {'ban_message': ban_message})
+
 
 @login_required
 def admin_panel(request):
-    # Перевірка, чи користувач є адміністратором
-    if request.user.status == 'admin':
-        surveys = Survey.objects.all()  # Отримуємо всі опитування
-        notifications = Notification.objects.all()  # Отримуємо всі оголошення
-        return render(request, 'portal_html/admin_panel.html', {
-            'surveys': surveys,
-            'notifications': notifications  # Передаємо оголошення в шаблон
-        })
+    if not request.user.is_staff or request.user.status != 'admin':
+        # Доступ лише для адмінів
+        return redirect('home')
+
+    # Списки адмінів, модераторів і забанених користувачів
+    admins = User.objects.filter(status='admin')
+    moderators = User.objects.filter(status='moderator')
+    banned_users = User.objects.filter(is_active=False)
+
+    message = None
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        email = request.POST.get('email')
+
+        try:
+            user = User.objects.get(email=email)
+
+            if action == 'add_moderator':
+                if user.status == 'admin':
+                    message = "Адміністратор не може бути доданий до модераторів."
+                else:
+                    user.status = 'moderator'
+                    user.save()
+                    message = f"Користувач {user.email} успішно оновлений до модератора."
+            elif action == 'demote_moderator':
+                if user.status == 'moderator':
+                    user.status = 'participant'
+                    user.save()
+                    message = f"Користувач {user.email} успішно знижений до учасника."
+                else:
+                    message = "Тільки модератори можуть бути знижені до учасників."
+            elif action == 'ban_user':
+                # Отримуємо дані бану
+                message_text = request.POST.get('message')
+                end_date = request.POST.get('end_date')
+
+                # Створення нового бану
+                ban = Ban(user=user, message=message_text, end_date=end_date)
+                ban.save()
+
+                # Вимкнути активність користувача
+                user.is_active = False
+                user.save()
+
+                message = f"Користувач {user.email} успішно заблокований до {ban.end_date}."
+
+            elif action == 'unban_user':
+                # Розбанити користувача
+                Ban.objects.filter(user=user).delete()  # Видалити бан
+                user.is_active = True
+                user.save()
+
+                message = f"Користувач {user.email} успішно розблокований."
+
+        except User.DoesNotExist:
+            message = "Користувача з такою поштою не знайдено."
+
+    return render(request, 'portal_html/admin_panel.html', {
+        'admins': admins,
+        'moderators': moderators,
+        'banned_users': banned_users,
+        'message': message,
+    })
+
+
+
+@login_required
+def admin_survey_list(request):
+    if request.user.is_staff:
+        surveys = Survey.objects.all()
+        return render(request, 'portal_html/admin_survey_list.html', {'surveys': surveys})
     else:
         return redirect('home')
+
+
+@login_required
+def admin_notification_list(request):
+    if request.user.is_staff:
+        notifications = Notification.objects.all()
+        return render(request, 'portal_html/admin_notification_list.html', {'notifications': notifications})
+    else:
+        return redirect('home')
+
+
+@login_required
+def admin_event_list(request):
+    if request.user.is_staff:
+        events = Event.objects.all()
+        return render(request, 'portal_html/admin_event_list.html', {'events': events})
+    else:
+        return redirect('home')
+
+
+@login_required
+def admin_poll_list(request):
+    if request.user.is_staff:
+        polls = Poll.objects.all()
+        return render(request, 'portal_html/admin_poll_list.html', {'polls': polls})
+    else:
+        return redirect('home')
+
 
 def register(request):
     if request.method == 'POST':
@@ -83,25 +185,18 @@ def user_profile(request):
 def create_survey(request):
     if request.method == 'POST':
         survey_form = SurveyForm(request.POST, request.FILES)
-        notification_form = NotificationForm(request.POST, request.FILES)
 
         # Перевіряємо валідність форм
-        if survey_form.is_valid() and notification_form.is_valid():
+        if survey_form.is_valid():
             # Зберігаємо опитування
             survey = survey_form.save()
-
-            # Зберігаємо новину
-            notification = notification_form.save(commit=False)
-            notification.save()
-
             # Перенаправляємо на сторінку для створення питань
             return redirect('create_questions', survey_id=survey.id)
     else:
         survey_form = SurveyForm()
-        notification_form = NotificationForm()
 
     return render(request, 'portal_html/create_survey.html',
-                  {'survey_form': survey_form, 'notification_form': notification_form})
+                  {'survey_form': survey_form})
 
 def create_questions(request, survey_id):
     survey = Survey.objects.get(id=survey_id)
@@ -448,56 +543,105 @@ def portfolio_view(request):
     return render(request, 'portal_html/portfolio.html', {'projects': projects})
 
 
-
-def poll_detail(request, poll_id):
-    poll = get_object_or_404(Poll, id=poll_id)
-    questions = Question_Poll.objects.filter(poll=poll)
-    user = request.user
-    user_votes = Vote.objects.filter(user=user, question__poll=poll)
-    voted_question_ids = user_votes.values_list('question_id', flat=True)
-    has_voted = user_votes.exists()
-
+@login_required
+def create_event(request):
     if request.method == 'POST':
+        form = EventForm(request.POST, request.FILES)
+        if form.is_valid():
+            form.save()
+            return redirect('calendar_view')  # Переходимо до календаря після створення
+    else:
+        form = EventForm()
 
-        if 'vote' in request.POST:
-            question_id = int(request.POST.get('vote'))
-            question = get_object_or_404(Question_Poll, id=question_id)
-
-            if has_voted:
-
-                old_vote = user_votes.first()
-                old_vote.delete()
-
-                old_question = old_vote.question
-                old_question.votes -= 1
-                old_question.save()
-
-            Vote.objects.create(user=user, question=question)
-
-            question.votes += 1
-            question.save()
-
-            return redirect('poll_detail', poll_id=poll.id)
+    return render(request, 'portal_html/create_event.html', {'form': form})
 
 
-        elif 'unvote' in request.POST:
-            question_id = int(request.POST.get('unvote'))
-            question = get_object_or_404(Question_Poll, id=question_id)
 
-            vote = user_votes.filter(question=question).first()
-            if vote:
-                vote.delete()
-                question.votes -= 1
-                question.save()
+def calendar_view(request):
+    return render(request, 'portal_html/calendar.html')
 
-            return redirect('poll_detail', poll_id=poll.id)
 
-    return render(request, 'portal_html/poll_detail.html', {
-        'poll': poll,
-        'questions': questions,
-        'voted_question_ids': voted_question_ids,
-        'has_voted': has_voted,
-    })
+# Повернення подій у форматі JSON для FullCalendar
+def events_json(request):
+    # Фільтруємо лише активні події
+    events = Event.objects.filter(end_time__gte=now())
+    events_by_date = defaultdict(list)
+
+    # Розбиваємо події на окремі дні
+    for event in events:
+        current_date = event.start_time.date()
+        end_date = event.end_time.date()
+
+        while current_date <= end_date:
+            events_by_date[current_date].append(event)
+            current_date += timedelta(days=1)
+
+    # Формуємо дані для календаря
+    data = []
+    for date, events_list in events_by_date.items():
+        if len(events_list) > 1:
+            # Якщо подій більше однієї, показуємо кількість подій
+            data.append({
+                "title": f"{len(events_list)} подій",
+                "start": date.isoformat(),
+                "url": f"/events/by-date/{date}/",
+            })
+        else:
+            # Якщо одна подія, показуємо її назву
+            event = events_list[0]
+            data.append({
+                "title": event.title,
+                "start": date.isoformat(),
+                "url": f"/events/{event.id}/",
+            })
+
+    return JsonResponse(data, safe=False)
+
+
+def events_by_date_json(request, date):
+    from datetime import datetime
+
+    # Перетворюємо отриману дату у формат datetime
+    selected_date = datetime.strptime(date, "%Y-%m-%d").date()
+
+    # Шукаємо події, що перетинаються з вибраною датою
+    events = Event.objects.filter(
+        start_time__date__lte=selected_date,  # Подія почалася до або на цю дату
+        end_time__date__gte=selected_date    # Подія закінчилася після або на цю дату
+    )
+
+    # Відображаємо список подій
+    return render(request, 'portal_html/events_by_date.html', {'events': events, 'date': selected_date})
+
+
+def event_detail(request, event_id):
+    event = get_object_or_404(Event, id=event_id)
+    return render(request, 'portal_html/event_detail.html', {'event': event})
+
+
+@login_required
+def delete_event(request, event_id):
+    if request.user.is_staff:  # Перевірка, чи користувач є адміністратором
+        event = get_object_or_404(Event, id=event_id)
+        event.delete()
+    return redirect('admin_panel')
+
+
+@login_required
+def edit_event(request, event_id):
+    # Отримуємо подію
+    event = get_object_or_404(Event, id=event_id)
+
+    # Якщо форма була надіслана
+    if request.method == 'POST':
+        form = EventEditForm(request.POST, instance=event)
+        if form.is_valid():
+            form.save()  # Зберігаємо зміни
+            return redirect('admin_panel')  # Перенаправляємо назад до адмін панелі
+    else:
+        form = EventEditForm(instance=event)  # Заповнюємо форму на основі існуючих даних події
+
+    return render(request, 'portal_html/edit_event.html', {'form': form, 'event': event})
 
 
 def poll_list(request):
@@ -505,28 +649,338 @@ def poll_list(request):
     return render(request, 'portal_html/poll_list.html', {'polls': polls})
 
 
-def event_detail(request, id):
-    event = get_object_or_404(Event, id=id)
-    return render(request, 'portal_html/event_detail.html', {'event': event})
+def create_poll_step_1(request):
+    if request.method == 'POST':
+        poll_form = PollForm(request.POST, request.FILES)
+        if poll_form.is_valid():
+            poll = poll_form.save(commit=False)  # Не зберігаємо ще в базу
+            poll.save()  # Зберігаємо голосування в базу
+
+            # Перенаправляємо на наступний етап, передаючи ID створеного голосування
+            return redirect('create_poll_step_2', poll_id=poll.id)
+    else:
+        poll_form = PollForm()
+
+    return render(request, 'portal_html/create_poll_step_1.html', {'poll_form': poll_form})
 
 
-def events_json(request):
-    room_type = request.GET.get('room_type', None)
-    events = Event.objects.all()
+def create_poll_step_2(request, poll_id):
+    poll = Poll.objects.get(id=poll_id)
+    candidates_count = poll.candidate_count
+
+    if request.method == 'POST':
+        # Обробляємо дані для кожної форми
+        candidate_forms = [
+            CandidateForm(request.POST, request.FILES, prefix=f'candidate_{i}')
+            for i in range(candidates_count)
+        ]
+        all_valid = True
+        for form in candidate_forms:
+            if form.is_valid():
+                candidate = form.save(commit=False)
+                candidate.poll = poll
+                candidate.save()
+            else:
+                all_valid = False
+
+        if all_valid:
+            return redirect('poll_list')  # Перенаправляємо на список голосувань
+
+    else:
+        # Створюємо список порожніх форм для кандидатів
+        candidate_forms = [
+            CandidateForm(prefix=f'candidate_{i}')
+            for i in range(candidates_count)
+        ]
+
+    return render(request, 'portal_html/create_poll_step_2.html', {
+        'poll': poll,
+        'candidate_forms': candidate_forms,
+    })
 
 
-    events_list = []
-    for event in events:
-        events_list.append({
-            'title': event.title,
-            'start': event.date.isoformat(),
-            'url': f'/events/{event.id}/'
+@login_required
+def vote_poll(request, poll_id):
+    poll = get_object_or_404(Poll, id=poll_id)
+
+    # Перевірка, чи голосування ще не завершилось
+    if poll.end_date < timezone.now().date():  # Порівнюємо дати
+        return redirect('home')  # Якщо голосування закінчилось, показуємо повідомлення
+
+    # Отримуємо кандидатів
+    candidates = poll.candidates.all()[:2]  # Вибираємо два кандидати
+
+    # Перевіряємо, чи користувач уже проголосував
+    try:
+        existing_vote = Vote.objects.get(user=request.user, poll=poll)
+        # Якщо є старий голос, видаляємо його
+        existing_vote.delete()
+    except Vote.DoesNotExist:
+        pass
+
+    if request.method == 'POST':
+        # Отримуємо кандидата, за якого користувач хоче проголосувати
+        candidate_id = request.POST.get('candidate_id')
+        candidate = get_object_or_404(Candidate, id=candidate_id)
+
+        # Створюємо новий голос
+        Vote.objects.create(user=request.user, candidate=candidate, poll=poll)
+
+        return redirect('poll_list')  # Після голосування перенаправляємо на список голосувань
+
+    return render(request, 'portal_html/vote_poll.html', {'poll': poll, 'candidates': candidates})
+
+
+@login_required
+def poll_results(request, poll_id):
+    poll = Poll.objects.get(id=poll_id)
+    candidates = Candidate.objects.filter(poll=poll)
+    chart_data = {}
+
+    # Збираємо дані для графіка
+    for candidate in candidates:
+        votes = Vote.objects.filter(candidate=candidate)
+        chart_data[candidate.name] = votes.count()
+
+    chart_data = {
+        'labels': list(chart_data.keys()),
+        'data': list(chart_data.values())
+    }
+
+    return render(request, 'portal_html/poll_results.html', {
+        'poll': poll,
+        'chart_data': chart_data,
+    })
+
+
+@login_required
+def delete_poll(request, poll_id):
+    poll = get_object_or_404(Poll, id=poll_id)
+
+    if request.method == 'POST':  # Перевіряємо, що це POST запит
+        poll.delete()  # Видаляємо голосування
+        return redirect('admin_panel')  # Переходимо на адмін панель після видалення
+
+    return redirect('admin_panel')
+
+
+
+@login_required
+def gallery_item_detail(request, item_id):
+    gallery_item = get_object_or_404(GalleryItem, id=item_id)
+    comments = gallery_item.comments.filter(parent_comment__isnull=True)
+    comment_form = CommentForm()
+
+    if request.method == 'POST':
+
+        # Видалення коментаря
+        delete_comment_id = request.POST.get("delete_comment_id")
+        if delete_comment_id:
+            comment_to_delete = get_object_or_404(Comment, id=delete_comment_id, author=request.user)
+            comment_to_delete.delete()
+            return redirect('gallery_item_detail', item_id=gallery_item.id)
+
+        # Редагування коментаря
+        comment_id = request.POST.get("comment_id")
+        if comment_id:
+            comment = get_object_or_404(Comment, id=comment_id, author=request.user)
+            comment.content = request.POST.get("content")
+            comment.save()
+            return redirect('gallery_item_detail', item_id=gallery_item.id)
+
+        # Додавання нового коментаря
+        comment_form = CommentForm(request.POST)
+        if comment_form.is_valid():
+            new_comment = comment_form.save(commit=False)
+            new_comment.gallery_item = gallery_item
+            new_comment.author = request.user
+
+            # Додавання відповідей на коментар
+            parent_comment_id = request.POST.get("parent_comment_id")
+            if parent_comment_id:
+                parent_comment = get_object_or_404(Comment, id=parent_comment_id)
+                new_comment.parent_comment = parent_comment
+
+            new_comment.save()
+            return redirect('gallery_item_detail', item_id=gallery_item.id)
+
+    return render(request, 'portal_html/gallery_item_detail.html', {
+        'gallery_item': gallery_item,
+        'comments': comments,
+        'comment_form': comment_form,
+    })
+
+
+@login_required
+def delete_gallery_item(request, item_id):
+    item = get_object_or_404(GalleryItem, id=item_id)
+    if request.user.status in ['admin', 'moderator'] or item.author == request.user:  # Заміна uploaded_by на author
+        item.delete()
+        return redirect('gallery')
+    else:
+        return HttpResponseForbidden("У вас немає прав для видалення цього поста.")
+
+
+@login_required
+def edit_gallery_item(request, item_id):
+    item = get_object_or_404(GalleryItem, id=item_id, author=request.user)  # Заміна uploaded_by на author
+
+    if request.method == 'POST':
+        form = GalleryItemForm(request.POST, instance=item)
+        if form.is_valid():
+            item.title = form.cleaned_data['title']
+            item.description = form.cleaned_data['description']
+            item.save(update_fields=['title', 'description'])
+            return redirect('gallery')
+    else:
+        form = GalleryItemForm(instance=item)
+        form.fields.pop('file')  # При редагуванні файл не можна змінювати
+
+    return render(request, 'portal_html/edit_gallery_item.html', {'form': form, 'item': item})
+
+
+def gallery_view(request):
+    query = request.GET.get('search', '')
+    file_type = request.GET.get('file_type', '')
+
+    gallery_items = GalleryItem.objects.all()
+
+    if file_type:
+        gallery_items = gallery_items.filter(file_type=file_type)
+
+    if query:
+        gallery_items = gallery_items.filter(title__icontains=query)
+
+    return render(request, 'portal_html/gallery.html', {
+        'gallery_items': gallery_items,
+        'query': query,
+        'file_type': file_type,
+    })
+
+
+@login_required
+def upload_gallery_item(request):
+    if request.method == 'POST':
+        form = GalleryItemForm(request.POST, request.FILES)
+        if form.is_valid():
+            gallery_item = form.save(commit=False)
+            gallery_item.author = request.user  # Заміна uploaded_by на author
+            gallery_item.save()
+            return redirect('gallery')
+    else:
+        form = GalleryItemForm()
+    return render(request, 'portal_html/upload_gallery_item.html', {'form': form})
+
+
+class FriendsView(ListView):
+    model = User
+    template_name = 'portal_html/friends_list.html'
+    context_object_name = 'friends'
+
+    def get_queryset(self):
+        user = self.request.user
+        # Отримуємо список друзів
+        queryset = user.friends.all()
+
+        # Отримуємо значення параметра пошуку
+        search_query = self.request.GET.get('search', '')
+
+        if search_query:
+            # Фільтруємо список друзів за іменем, прізвищем, поштою або номером телефону
+            queryset = queryset.filter(
+                Q(first_name__icontains=search_query) |
+                Q(last_name__icontains=search_query) |
+                Q(email__icontains=search_query)
+            ).distinct()
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['form'] = AddFriendForm()
+        context['friend_requests'] = self.request.user.received_friend_requests.filter(status='pending')
+        context['sent_requests'] = self.request.user.sent_friend_requests.filter(
+            status='pending')  # Додаємо надіслані запити
+        context['search_query'] = self.request.GET.get('search', '')  # Додаємо пошуковий запит до контексту
+        return context
+
+    def post(self, request, *args, **kwargs):
+        form = AddFriendForm(request.POST)
+        friends = self.get_queryset()  # Отримуємо список друзів для контексту
+        friend_requests = self.request.user.received_friend_requests.filter(status='pending')  # Отримуємо запити дружби
+        sent_requests = self.request.user.sent_friend_requests.filter(status='pending')  # Отримуємо надіслані запити
+
+        if form.is_valid():
+            identifier = form.cleaned_data['identifier']
+            friend = None
+
+            # Шукаємо користувача за телефоном або email
+            try:
+                if "@" in identifier:
+                    friend = User.objects.get(email=identifier)
+            except User.DoesNotExist:
+                form.add_error('identifier', 'Користувача з такою інформацією не знайдено.')
+
+            if friend:
+                # Перевіряємо, чи не намагається користувач надіслати запит самому собі
+                if friend == request.user:
+                    form.add_error('identifier', 'Ви не можете надіслати запит самому собі.')
+                else:
+                    # Шукаємо існуючий запит на дружбу
+                    friend_request, created = FriendRequest.objects.get_or_create(from_user=request.user,
+                                                                                  to_user=friend)
+                    if friend_request.status in ['rejected', 'accepted']:
+                        # Якщо запит був прийнятий або відхилений, дозволяємо надіслати його знову
+                        friend_request.status = 'pending'  # Оновлюємо статус
+                        friend_request.save()
+
+                    return redirect('friends_list')
+
+        # У разі помилки, залишаємо форму та відображаємо запити
+        return render(request, self.template_name, {
+            'form': form,
+            'friends': friends,
+            'friend_requests': friend_requests,
+            'sent_requests': sent_requests,
         })
 
-    return JsonResponse(events_list, safe=False)
 
-def calendar_view(request):
-    # Группируем события по дате
-    events_by_date = Event.objects.all().order_by('date', 'time')
-    return render(request, 'portal_html/calendar.html', {'events_by_date': events_by_date})
+def delete_friend(request, friend_id):
+    if request.method == "POST":
+        friend = get_object_or_404(User, id=friend_id)
+        request.user.friends.remove(friend)  # Видаляємо друга зі списку друзів
+        return redirect('friends_list')
+
+
+def handle_friend_request(request, request_id):
+    # Шукаємо запит на дружбу
+    friend_request = get_object_or_404(FriendRequest, id=request_id)
+
+    # Перевіряємо, чи користувач є тим, хто надіслав або отримав запит
+    if friend_request.to_user == request.user:
+        # Обробляємо прийняття або відхилення запиту
+        if request.method == 'POST':
+            action = request.POST.get('action')
+
+            if action == 'accept':
+                # Додаємо у друзі
+                request.user.friends.add(friend_request.from_user)
+                friend_request.from_user.friends.add(request.user)
+                friend_request.status = 'accepted'
+            elif action == 'reject':
+                friend_request.status = 'rejected'
+
+            friend_request.save()
+    elif friend_request.from_user == request.user:
+        # Скасовуємо запит
+        if request.method == 'POST':
+            friend_request.delete()
+
+    return redirect('friends_list')
+
+
+
+
+
+
 

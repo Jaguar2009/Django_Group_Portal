@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block title %}Список оголошень{% endblock %}
+
+{% block body %}
+<a href="{% url 'create_notification' %}" class="btn btn-info">Створити оголошення</a>
+<h3 class="mt-4">Список оголошень</h3>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Назва</th>
+                <th>Опис</th>
+                <th>Дата створення</th>
+                <th>Дії</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for notification in notifications %}
+                <tr>
+                    <td>{{ notification.title }}</td>
+                    <td>{{ notification.description }}</td>
+                    <td>{{ notification.created_at|date:"d.m.Y H:i" }}</td>
+                    <td>
+                        <a href="{% url 'delete_notification' notification.id %}" class="btn btn-danger btn-sm">Видалити</a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

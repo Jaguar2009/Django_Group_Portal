@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block title %}Голосування - {{ poll.title }}{% endblock %}
+
+{% block body %}
+<h1>Голосування: {{ poll.title }}</h1>
+<p>{{ poll.description }}</p>
+<p>До закінчення голосування: {{ poll.end_date }}</p>
+
+<h2>Кандидати:</h2>
+<form method="POST">
+    {% csrf_token %}
+    {% for candidate in candidates %}
+        <div>
+            <h3>{{ candidate.name }}</h3>
+            <img src="{{ candidate.image.url }}" alt="{{ candidate.name }}" width="100">
+            <p>{{ candidate.description }}</p>
+            <button type="submit" name="candidate_id" value="{{ candidate.id }}">Проголосувати</button>
+        </div>
+    {% endfor %}
+</form>
+
+{% endblock %}

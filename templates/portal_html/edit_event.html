@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block title %}Редагування події{% endblock %}
+
+{% block body %}
+<h1>Редагування події</h1>
+
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-success">Зберегти зміни</button>
+</form>
+
+<a href="{% url 'admin_panel' %}" class="btn btn-secondary mt-3">Назад до адмін панелі</a>
+{% endblock %}

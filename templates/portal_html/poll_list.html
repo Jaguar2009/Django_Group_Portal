@@ -1,14 +1,31 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Список опитування</title>
-</head>
-<body>
-    <h1>Опитування</h1>
-    <ul>
+{% extends 'base.html' %}
+
+{% block title %}Список голосувань{% endblock %}
+
+{% block body %}
+<h1>Список голосувань</h1>
+
+<table>
+    <thead>
+        <tr>
+            <th>Назва</th>
+            <th>Опис</th>
+            <th>Дата завершення</th>
+            <th>Дії</th>
+        </tr>
+    </thead>
+    <tbody>
         {% for poll in polls %}
-            <li><a href="{{ poll.id }}/">{{ poll.title }}</a></li>
+            <tr>
+                <td>{{ poll.title }}</td>
+                <td>{{ poll.description }}</td>
+                <td>{{ poll.end_date }}</td>
+                <td>
+                    <a href="{% url 'vote_poll' poll.id %}">Проголосувати</a>
+                </td>
+            </tr>
         {% endfor %}
-    </ul>
-</body>
-</html>
+    </tbody>
+</table>
+
+{% endblock %}
