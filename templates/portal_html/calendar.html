@@ -1,7 +1,7 @@
-{% extends "base.html" %}
+{% extends "base_group.html" %}
 
 {% block body %}
-<h2>Календар подій</h2>
+<h2>Календар подій для групи "{{ group.name }}"</h2>
 <div id="calendar"></div>
 
 <script>
@@ -11,7 +11,7 @@
         var calendar = new FullCalendar.Calendar(calendarEl, {
             initialView: 'dayGridMonth',
             locale: 'uk',
-            events: '/events/events-json/',
+            events: '/events/events-json/{{ group.id }}/',  // Вказуємо ID групи в URL
             eventClick: function(info) {
                 if (info.event.url) {
                     window.location.href = info.event.url;

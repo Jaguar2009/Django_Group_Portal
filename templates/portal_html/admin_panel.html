@@ -1,40 +1,43 @@
-{% extends 'base.html' %}
+{% extends 'base_group.html' %}
 
-{% block title %}Адмін Панель{% endblock %}
+{% block title %}Адмін Панель - {{ group.name }}{% endblock %}
 
 {% block body %}
 <div class="container mt-4">
-    <h1>Адмін Панель</h1>
+    <h1>Адмін Панель Групи: {{ group.name }}</h1>
+    <p class="text-muted">{{ group.description }}</p>
+    <div class="text-center mt-4">
+        <img src="{{ group.image.url }}" alt="Зображення групи" class="img-fluid" style="max-height: 200px;">
+    </div>
     <div class="d-flex justify-content-around mt-4">
-        <a href="{% url 'admin_survey_list' %}" class="btn btn-primary">Список опитувань</a>
-        <a href="{% url 'admin_notification_list' %}" class="btn btn-primary">Список оголошень</a>
-        <a href="{% url 'admin_event_list' %}" class="btn btn-primary">Список подій</a>
-        <a href="{% url 'admin_poll_list' %}" class="btn btn-primary">Список голосувань</a>
+        <a href="{% url 'admin_survey_list' group.id %}" class="btn btn-primary">Список опитувань</a>
+        <a href="{% url 'admin_notification_list' group.id %}" class="btn btn-primary">Список оголошень</a>
+        <a href="{% url 'admin_event_list' group.id %}" class="btn btn-primary">Список подій</a>
+        <a href="{% url 'admin_poll_list' group.id %}" class="btn btn-primary">Список голосувань</a>
     </div>
 </div>
 
 {% if message %}
-    <div class="alert alert-success">
+    <div class="alert alert-success mt-4">
         {{ message }}
     </div>
 {% endif %}
 
-<h2>Адміністратори</h2>
+<h2 class="mt-4">Адміністратори</h2>
 <ul>
     {% for admin in admins %}
-        <li>{{ admin.first_name }} {{ admin.last_name }} - {{ admin.email }}</li>
+        <li>{{ admin.user.first_name }} {{ admin.user.last_name }} - {{ admin.user.email }}</li>
     {% endfor %}
 </ul>
 
-<h2>Модератори</h2>
+<h2 class="mt-4">Модератори</h2>
 <ul>
     {% for moderator in moderators %}
         <li>
-            {{ moderator.first_name }} {{ moderator.last_name }} - {{ moderator.email }}
-            <!-- Кнопка для зниження статусу -->
-            <form method="post" style="display: inline;">
+            {{ moderator.user.first_name }} {{ moderator.user.last_name }} - {{ moderator.user.email }}
+            <form method="post" class="d-inline">
                 {% csrf_token %}
-                <input type="hidden" name="email" value="{{ moderator.email }}">
+                <input type="hidden" name="email" value="{{ moderator.user.email }}">
                 <input type="hidden" name="action" value="demote_moderator">
                 <button type="submit" class="btn btn-danger btn-sm">Знизити до Учасника</button>
             </form>
@@ -42,8 +45,8 @@
     {% endfor %}
 </ul>
 
-<!-- Кнопка для відкриття модального вікна -->
-<button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addModeratorModal">
+<!-- Кнопка для модального вікна додавання модератора -->
+<button type="button" class="btn btn-primary mt-3" data-bs-toggle="modal" data-bs-target="#addModeratorModal">
     Додати Модератора
 </button>
 
@@ -53,14 +56,14 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="addModeratorModalLabel">Додати Модератора</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрити"></button>
             </div>
             <div class="modal-body">
                 <form method="post">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="add_moderator">
                     <div class="mb-3">
-                        <label for="email" class="form-label">Email</label>
+                        <label for="email" class="form-label">Електронна пошта</label>
                         <input type="email" class="form-control" id="email" name="email" required>
                     </div>
                     <button type="submit" class="btn btn-primary">Додати</button>
@@ -70,132 +73,56 @@
     </div>
 </div>
 
+<h2 class="mt-4">Заблоковані користувачі</h2>
+<ul>
+    {% for banned_user in banned_users %}
+        <li>
+            {{ banned_user.first_name }} {{ banned_user.last_name }} - {{ banned_user.email }}
+            <form method="post" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="email" value="{{ banned_user.email }}">
+                <input type="hidden" name="action" value="unban_user">
+                <button type="submit" class="btn btn-success btn-sm">Розблокувати</button>
+            </form>
+        </li>
+    {% endfor %}
+</ul>
 
-<h2>Заблоковані користувачі</h2>
-    <ul>
-        {% for banned_user in banned_users %}
-            <li>
-                {{ banned_user.first_name }} {{ banned_user.last_name }} - {{ banned_user.email }}
-                <!-- Кнопка для розбану -->
-                <form method="post" style="display:inline;">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="unban_user">
-                    <input type="hidden" name="email" value="{{ banned_user.email }}">
-                    <button type="submit" class="btn btn-success btn-sm">Розблокувати</button>
-                </form>
-            </li>
-        {% endfor %}
-    </ul>
+<!-- Модальне вікно блокування користувача -->
+<button type="button" class="btn btn-danger mt-3" data-bs-toggle="modal" data-bs-target="#banUserModal">
+    Заблокувати користувача
+</button>
 
-    <!-- Кнопка для відкриття модального вікна для бану -->
-    <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#banUserModal">
-        Заблокувати користувача
-    </button>
-
-    <!-- Модальне вікно для бану -->
-    <div class="modal fade" id="banUserModal" tabindex="-1" aria-labelledby="banModalLabel" aria-hidden="true">
-      <div class="modal-dialog">
+<div class="modal fade" id="banUserModal" tabindex="-1" aria-labelledby="banUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
         <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="banModalLabel">Бан користувача</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
-          <form method="post">
-            {% csrf_token %}
-            <div class="modal-body">
-              <input type="hidden" name="action" value="ban_user">
-              <div class="mb-3">
-                <label for="email" class="form-label">Електронна пошта</label>
-                <input type="email" class="form-control" id="email" name="email" required>
-              </div>
-              <div class="mb-3">
-                <label for="message" class="form-label">Причина</label>
-                <textarea class="form-control" id="message" name="message" rows="3" required></textarea>
-              </div>
-              <div class="mb-3">
-                <label for="end_date" class="form-label">Дата закінчення</label>
-                <input type="date" class="form-control" id="end_date" name="end_date" required>
-              </div>
+            <div class="modal-header">
+                <h5 class="modal-title" id="banUserModalLabel">Бан користувача</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрити"></button>
             </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрити</button>
-              <button type="submit" class="btn btn-danger">Заблокувати</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-
-
-
-<h2>Галерея</h2>
-<table class="table">
-    <thead>
-        <tr>
-            <th>Тип</th>
-            <th>Файл</th>
-            <th>Заголовок</th>
-            <th>Описание</th>
-            <th>Загружено</th>
-            <th>Одобрено</th>
-            <th>Действия</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for item in gallery_items %}
-            <tr>
-                <td>{{ item.file_type }}</td>
-                <td>
-                    {% if item.file_type == 'image' %}
-                        <img src="{{ item.file.url }}" alt="{{ item.title }}" style="width: 100px; height: auto;">
-                    {% elif item.file_type == 'video' %}
-                        <video controls style="width: 100px;">
-                            <source src="{{ item.file.url }}" type="video/mp4">
-                        </video>
-                    {% endif %}
-                </td>
-                <td>{{ item.title }}</td>
-                <td>{{ item.description }}</td>
-                <td>{{ item.uploaded_at|date:"d.m.Y H:i" }}</td>
-                <td>
-                    {% if item.is_approved %}
-                        <span class="text-success">Одобрено</span>
-                    {% else %}
-                        <span class="text-danger">Не одобрено</span>
-                    {% endif %}
-                </td>
-                <td>
-                    <!-- Кнопки действий -->
-                    {% if not item.is_approved %}
-                        <a href="{% url 'approve_gallery_item' item.id %}" class="btn btn-success">Одобрить</a>
-                    {% endif %}
-                    <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteGalleryItemModal{{ item.id }}">
-                        Удалить
-                    </button>
-
-                    <!-- Модальное окно для удаления -->
-                    <div class="modal fade" id="deleteGalleryItemModal{{ item.id }}" tabindex="-1" aria-labelledby="deleteGalleryItemModalLabel{{ item.id }}" aria-hidden="true">
-                        <div class="modal-dialog">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title" id="deleteGalleryItemModalLabel{{ item.id }}">Удалить элемент галереи</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
-                                </div>
-                                <div class="modal-body">
-                                    Вы уверены, что хотите удалить "{{ item.title }}"?
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-                                    <a href="{% url 'delete_gallery_item' item.id %}" class="btn btn-danger">Удалить</a>
-                                </div>
-                            </div>
-                        </div>
+            <form method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <input type="hidden" name="action" value="ban_user">
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Електронна пошта</label>
+                        <input type="email" class="form-control" id="email" name="email" required>
                     </div>
-                </td>
-            </tr>
-        {% endfor %}
-    </tbody>
-</table>
-
-
+                    <div class="mb-3">
+                        <label for="message" class="form-label">Причина</label>
+                        <textarea class="form-control" id="message" name="message" rows="3" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="end_date" class="form-label">Дата закінчення</label>
+                        <input type="date" class="form-control" id="end_date" name="end_date" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрити</button>
+                    <button type="submit" class="btn btn-danger">Заблокувати</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock %}

@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "base_group.html" %}
 
 {% block body %}
 <h2>{{ event.title }}</h2>
@@ -8,5 +8,4 @@
 {% if event.image %}
     <img src="{{ event.image.url }}" alt="Картинка події" style="max-width: 100%;">
 {% endif %}
-<a href="{% url 'calendar_view' %}" class="btn btn-secondary">Назад до календаря</a>
 {% endblock %}

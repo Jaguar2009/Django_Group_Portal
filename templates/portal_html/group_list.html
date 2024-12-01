@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% block body %}
+  <h2>Список груп</h2>
+  <ul>
+    {% for group in groups %}
+      <li>
+        <h3>{{ group.name }}</h3>
+        <p>{{ group.description }}</p>
+        <img src="{{ group.image.url }}" alt="{{ group.name }}" width="100" />
+        {% if group.is_member %}
+          <a href="{% url 'group_detail' group.id %}" target="_blank">Перейти до групи</a>
+        {% else %}
+          <a href="#"
+             onclick="joinAndOpenGroup({{ group.id }}); return false;">
+            Приєднатися до групи
+          </a>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+
+  <script>
+    function joinAndOpenGroup(groupId) {
+      // Надсилаємо запит на приєднання
+      fetch(`/join-group/${groupId}/`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': '{{ csrf_token }}', // CSRF токен для захисту
+        },
+      })
+      .then(response => {
+        if (response.ok) {
+          // Відкриваємо сторінку групи у новій вкладці
+          const groupDetailUrl = `/groups/${groupId}/`;
+          window.open(groupDetailUrl, '_blank');
+        } else {
+          alert('Не вдалося приєднатися до групи. Спробуйте пізніше.');
+        }
+      })
+      .catch(error => {
+        console.error('Помилка:', error);
+      });
+    }
+  </script>
+{% endblock %}

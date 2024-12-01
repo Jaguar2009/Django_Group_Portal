@@ -1,8 +1,8 @@
-{% extends 'base.html' %}
+{% extends 'base_group.html' %}
 {% block title %}Список подій{% endblock %}
 
 {% block body %}
-<a href="{% url 'create_event' %}" class="btn btn-info">Створити подію</a>
+<a href="{% url 'create_event' group.id %}" class="btn btn-info">Створити подію</a>
 <h3 class="mt-4">Список подій</h3>
     <table class="table table-striped">
         <thead>

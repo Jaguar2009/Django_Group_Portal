@@ -35,19 +35,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     last_name = models.CharField(max_length=30)
     avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
     friends = models.ManyToManyField('self', symmetrical=False, blank=True)
+    date_joined = models.DateTimeField(default=timezone.now)
 
     # Додайте ці поля
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)
-
-    STATUS_CHOICES = [
-        ('admin', 'Admin'),
-        ('moderator', 'Moderator'),
-        ('participant', 'Participant'),
-    ]
-    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='participant')
-    date_joined = models.DateTimeField(default=timezone.now)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['first_name', 'last_name']
@@ -58,6 +51,36 @@ class User(AbstractBaseUser, PermissionsMixin):
         return self.email
 
 
+# Модель для груп
+class Group(models.Model):
+    name = models.CharField(max_length=255)  # Назва групи
+    description = models.TextField()  # Опис групи
+    created_at = models.DateTimeField(default=timezone.now)  # Час створення групи
+    image = models.ImageField(upload_to='group_images/', blank=True, null=True)  # Картинка для групи
+
+    def __str__(self):
+        return self.name
+
+
+# Модель для ролей користувачів в групах
+class GroupMembership(models.Model):
+    ROLE_CHOICES = [
+        ('member', 'Учасник'),
+        ('moderator', 'Модератор'),
+        ('admin', 'Адмін'),
+    ]
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='group_memberships')
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name='memberships')
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='member')  # Роль користувача
+    joined_at = models.DateTimeField(default=timezone.now)  # Час приєднання до групи
+
+    class Meta:
+        unique_together = ('user', 'group')  # Забезпечуємо, що один користувач не може бути в групі більше одного разу
+
+    def __str__(self):
+        return f'{self.user.email} - {self.group.name} ({self.role})'
+
+
 class Survey(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField()
@@ -65,6 +88,7 @@ class Survey(models.Model):
     question_count = models.PositiveIntegerField()
     participant_count = models.PositiveIntegerField(default=0)
     active_until = models.DateTimeField(default=timezone.now, null=True, blank=True)
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="surveys", null=True, blank=True)  # Додано
 
     def __str__(self):
         return self.title
@@ -103,6 +127,7 @@ class Notification(models.Model):
     description = models.TextField()
     image = models.ImageField(upload_to='notifications/', null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="notifications", null=True, blank=True)  # Додано
 
     def __str__(self):
         return self.title
@@ -126,6 +151,7 @@ class ForumPost(models.Model):
     access = models.CharField(max_length=10, choices=ACCESS_CHOICES, default='open', verbose_name="Доступність")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата створення")
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="forum_posts", verbose_name="Автор")
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="forum_posts", null=True,blank=True)  # Додано
 
     def __str__(self):
         return self.title
@@ -192,6 +218,7 @@ class Event(models.Model):
     image = models.ImageField(upload_to='event_images/', blank=True, null=True, verbose_name="Картинка події")
     start_time = models.DateTimeField(verbose_name="Час початку події")
     end_time = models.DateTimeField(verbose_name="Час закінчення події")
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="events", null=True, blank=True)  # Додано
 
     def __str__(self):
         return self.title
@@ -203,6 +230,8 @@ class Poll(models.Model):
     end_date = models.DateField()  # Дата завершення голосування
     candidate_count = models.PositiveIntegerField(default=0)  # Кількість кандидатів
     image = models.ImageField(upload_to='polls/', null=True, blank=True)  # Картинка для голосування
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name='polls', null=True,
+                              blank=True)  # Зв'язок з групою
 
     def __str__(self):
         return self.title
@@ -226,7 +255,7 @@ class Vote(models.Model):
     date = models.DateTimeField(auto_now_add=True)  # Дата голосування
 
     def __str__(self):
-        return f'{self.user.username} voted for {self.candidate.name}'
+        return f'{self.user.first_name} voted for {self.candidate.name}'
 
 
 class Ban(models.Model):
@@ -253,6 +282,7 @@ class GalleryItem(models.Model):
     description = models.TextField(blank=True)
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='gallery_items')  # Заміна uploaded_by на author
     uploaded_at = models.DateTimeField(auto_now_add=True)
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name='gallery_items', null=True, blank=True)  # Додано зв’язок з групою
 
     def __str__(self):
         return self.title or f'Gallery Item #{self.id}'
@@ -263,8 +293,6 @@ class FriendRequest(models.Model):
     to_user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='received_friend_requests', on_delete=models.CASCADE)
     status = models.CharField(max_length=20, choices=[('pending', 'Pending'), ('accepted', 'Accepted'), ('rejected', 'Rejected')], default='pending')
     timestamp = models.DateTimeField(auto_now_add=True)
-
-
 
 
 

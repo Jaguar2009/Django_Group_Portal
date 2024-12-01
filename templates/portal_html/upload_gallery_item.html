@@ -1,14 +1,12 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Загрузить файл</title>
-</head>
-<body>
+{% extends 'base_group.html' %}
+
+{% block title %}Галерея{% endblock %}
+
+{% block body %}
     <h1>Загрузить файл</h1>
     <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
         {{ form.as_p }}
         <button type="submit">Загрузить</button>
     </form>
-</body>
-</html>
+{% endblock %}

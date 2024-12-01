@@ -3,7 +3,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from .models import User, Survey, Question, Answer, Notification, ForumPost, ForumAddition, Comment, Event, Poll, \
-    Candidate, GalleryItem
+    Candidate, GalleryItem, Group
 
 
 class CustomUserCreationForm(UserCreationForm):
@@ -153,3 +153,9 @@ class AddFriendForm(forms.Form):
         label="Email",
         widget=forms.TextInput(attrs={'placeholder': 'Введіть Email'})
     )
+
+
+class GroupForm(forms.ModelForm):
+    class Meta:
+        model = Group
+        fields = ['name', 'description', 'image']

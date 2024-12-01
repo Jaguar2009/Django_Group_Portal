@@ -1,0 +1,11 @@
+{% extends 'base_group.html' %}
+
+{% block title %}
+  {{ group.name }} - Деталі
+{% endblock %}
+
+{% block body %}
+  <h2>Про групу</h2>
+  <p>{{ group.description }}</p>
+  <img src="{{ group.image.url }}" alt="{{ group.name }}" width="200">
+{% endblock %}

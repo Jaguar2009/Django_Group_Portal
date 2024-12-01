@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+{% extends 'base_group.html' %}
 
 {% block title %}{{ post.title }}{% endblock %}
 
@@ -21,7 +21,6 @@
                 <a href="{% url 'forum_post_edit' post.id %}" class="btn btn-primary">Редагувати пост</a>
                 <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">Видалити пост</button>
             {% endif %}
-            <a href="{% url 'forum_list' %}" class="btn btn-secondary">Назад до форуму</a>
         </div>
     </div>
 
