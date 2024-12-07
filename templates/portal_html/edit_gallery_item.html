@@ -1,15 +1,31 @@
 {% extends 'base_group.html' %}
 
-{% block title %}Галерея{% endblock %}
+{% block title %}Редагування Галереї{% endblock %}
 
 {% block body %}
-    <h1>Редактировать "{{ item.title }}"</h1>
-
-    <form method="post">
+<div class="container my-4">
+    <h1>Редагування елементу галереї: "{{ item.title }}"</h1>
+    <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit" class="btn btn-success">Сохранить</button>
+        <div class="mb-3">
+            {{ form.file_type.label_tag }} {{ form.file_type }}
+        </div>
+        <div class="mb-3">
+            {{ form.file.label_tag }} {{ form.file }}
+            {% if form.file.errors %}
+                <div class="text-danger">{{ form.file.errors }}</div>
+            {% endif %}
+        </div>
+        <div class="mb-3">
+            {{ form.title.label_tag }} {{ form.title }}
+            {% if form.title.errors %}
+                <div class="text-danger">{{ form.title.errors }}</div>
+            {% endif %}
+        </div>
+        <div class="mb-3">
+            {{ form.description.label_tag }} {{ form.description }}
+        </div>
+        <button class="btn btn-success" type="submit">Зберегти зміни</button>
     </form>
+</div>
 {% endblock %}
-
-

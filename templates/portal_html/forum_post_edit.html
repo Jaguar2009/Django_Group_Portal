@@ -3,13 +3,62 @@
 {% block title %}Редагувати пост - {{ form.instance.title }}{% endblock %}
 
 {% block body %}
-<div class="container mt-4">
-    <h2>Редагувати пост</h2>
-    <form method="POST" enctype="multipart/form-data">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit" class="btn btn-primary">Зберегти зміни</button>
-    </form>
-    <a href="{% url 'forum_post_detail' form.instance.id %}" class="btn btn-secondary mt-3">Назад до посту</a>
+<div class="container mt-5">
+    <div class="card shadow">
+        <div class="card-header text-center bg-primary text-white">
+            <h3>Редагувати пост</h3>
+        </div>
+        <div class="card-body">
+            <form method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="mb-3">
+                    {{ form.title.label_tag }}
+                    {{ form.title }}
+                    {% for error in form.title.errors %}
+                        <small class="text-danger">{{ error }}</small>
+                    {% endfor %}
+                </div>
+                <div class="mb-3">
+                    {{ form.content.label_tag }}
+                    {{ form.content }}
+                    {% for error in form.content.errors %}
+                        <small class="text-danger">{{ error }}</small>
+                    {% endfor %}
+                </div>
+                <div class="mb-3">
+                    {{ form.files.label_tag }}
+                    {{ form.files }}
+                    {% for error in form.files.errors %}
+                        <small class="text-danger">{{ error }}</small>
+                    {% endfor %}
+                </div>
+                <div class="mb-3">
+                    {{ form.status.label_tag }}
+                    {{ form.status }}
+                    {% for error in form.status.errors %}
+                        <small class="text-danger">{{ error }}</small>
+                    {% endfor %}
+                </div>
+                <div class="mb-3">
+                    {{ form.access.label_tag }}
+                    {{ form.access }}
+                    {% for error in form.access.errors %}
+                        <small class="text-danger">{{ error }}</small>
+                    {% endfor %}
+                </div>
+                <div class="mb-3">
+                    {{ form.image.label_tag }}
+                    {{ form.image }}
+                    {% for error in form.image.errors %}
+                        <small class="text-danger">{{ error }}</small>
+                    {% endfor %}
+                </div>
+                <button type="submit" class="btn btn-success w-100">Зберегти зміни</button>
+            </form>
+        </div>
+        <div class="card-footer text-center">
+            <a href="{% url 'forum_post_detail' form.instance.id %}" class="btn btn-secondary">Назад до посту</a>
+        </div>
+    </div>
 </div>
 {% endblock %}

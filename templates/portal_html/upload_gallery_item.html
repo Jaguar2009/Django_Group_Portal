@@ -3,10 +3,50 @@
 {% block title %}Галерея{% endblock %}
 
 {% block body %}
-    <h1>Загрузить файл</h1>
-    <form method="post" enctype="multipart/form-data">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit">Загрузить</button>
-    </form>
+<div class="container mt-5">
+    <h1 class="mb-4">Додати файл до галереї</h1>
+    <div class="card">
+        <div class="card-body">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+
+                <div class="form-group">
+                    {{ form.title.label_tag }}
+                    {{ form.title }}
+                    {% for error in form.title.errors %}
+                        <div class="text-danger">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="form-group">
+                    {{ form.description.label_tag }}
+                    {{ form.description }}
+                    {% for error in form.description.errors %}
+                        <div class="text-danger">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="form-group">
+                    {{ form.file_type.label_tag }}
+                    {{ form.file_type }}
+                    {% for error in form.file_type.errors %}
+                        <div class="text-danger">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="form-group">
+                    {{ form.file.label_tag }}
+                    {{ form.file }}
+                    {% for error in form.file.errors %}
+                        <div class="text-danger">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="text-center">
+                    <button type="submit" class="btn btn-primary mt-3">Додати файл</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock %}

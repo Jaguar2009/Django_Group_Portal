@@ -1,43 +1,108 @@
-import base64
 from datetime import date, timedelta
+
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q
 from django.http import JsonResponse, HttpResponseForbidden
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, authenticate, logout
-from django.urls import reverse
 from django.views.generic import ListView
 
-from .forms import CustomUserCreationForm, LoginForm, AnswerForm, QuestionForm, SurveyForm, SurveyResponseForm, \
+from .forms import LoginForm, AnswerForm, QuestionForm, SurveyForm, SurveyResponseForm, \
     NotificationForm, ForumPostForm, CommentForm, ForumPostAdditionForm, EventForm, EventEditForm, PollForm, \
-    CandidateForm, CandidateEditForm, PollEditForm, GalleryItemForm, AddFriendForm, GroupForm
+    CandidateForm, CandidateEditForm, PollEditForm, GalleryItemForm, AddFriendForm, GroupForm, RegistrationForm, \
+    GroupEditForm, ForumEditPostForm, ForumEditPostAdditionForm, CommentEditForm, GalleryEditItemForm
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from .models import Survey, Question, SurveyResult, Answer, Notification, ForumPost, Comment, ForumAddition, Event, \
-    Poll, Vote, Candidate, User, Ban, GalleryItem, FriendRequest, GroupMembership, Group
+    Poll, Vote, Candidate, User, Ban, GalleryItem, FriendRequest, GroupMembership, Group, UserNews
 from django.db import IntegrityError
 from datetime import datetime
-import calendar
 from collections import defaultdict
 from django.utils.timezone import now
+import random
+import os
+from django.conf import settings
+
+
+def search_groups(request):
+    query = request.GET.get('q', '')  # Отримуємо строку пошуку
+    groups = Group.objects.filter(name__icontains=query) if query else []  # Пошук груп
+
+    # Додаємо інформацію про членство для кожної групи
+    for group in groups:
+        group.is_member = GroupMembership.objects.filter(user=request.user, group=group).exists()
+
+    return render(request, 'portal_html/group_search_results.html', {'query': query, 'groups': groups})
+
+
+@login_required(login_url='/login/')
+def group_list(request):
+    groups = Group.objects.all()
+    user_groups = {membership.group.id for membership in GroupMembership.objects.filter(user=request.user)}
+    for group in groups:
+        group.is_member = group.id in user_groups
+    return render(request, 'portal_html/group_list.html', {'groups': groups})
+
+
+def is_group_admin(user, group):
+    membership = GroupMembership.objects.get(user=user, group=group)
+    if membership.role == "admin":
+        return True
+    return False
+
+
+def is_group_moderator(user, group):
+    membership = GroupMembership.objects.get(user=user, group=group)
+    if membership.role == "moderator":
+        return True
+    return False
+
+
+def is_user_admin_or_moderator(user, group):
+    return is_group_admin(user, group) or is_group_moderator(user, group)
+
+
+def check_user_ban_in_group(user, group):
+    if Ban.objects.filter(user=user, group=group).exists():
+        return redirect('group_detail', group_id=group.id)
+    return
 
 
 def home(request):
     return render(request, 'portal_html/home.html')
 
 
-@login_required
+@login_required(login_url='/login/')
 def admin_panel(request, group_id):
     group = get_object_or_404(Group, id=group_id)
 
-    # Перевірка, чи користувач є адміністратором цієї групи
-    membership = GroupMembership.objects.filter(user=request.user, group=group, role='admin').first()
-    if not membership:
-        return redirect('home')  # Перенаправлення для неадмінів
+    if not is_user_admin_or_moderator(request.user, group):
+        return redirect('group_detail', group_id=group.id)
+
+    user_ban = check_user_ban_in_group(request.user, group)
+    if user_ban:
+        return user_ban
 
     # Отримання списків користувачів у межах групи
     admins = GroupMembership.objects.filter(group=group, role='admin').select_related('user')
     moderators = GroupMembership.objects.filter(group=group, role='moderator').select_related('user')
-    banned_users = User.objects.filter(is_active=False, group_memberships__group=group)
+    members = GroupMembership.objects.filter(group=group, role='member').select_related('user')
+    user_friends = request.user.friends.all()
+    banned_users = User.objects.filter(bans__group=group).distinct()
+    is_moderators = is_group_moderator(request.user, group)
+
+
+    for ban in banned_users:
+        if ban.end_date <= timezone.now():
+            # Розблокування користувача
+            UserNews.objects.create(
+                user=ban.user,
+                title=f"Вас розблоковано у групі {group.name}",
+                description=f"Тепер ви можете знову взаємодіяти з групою {group.name}."
+            )
+            # Видалення запису бана
+            ban.delete()
+
 
     message = None
 
@@ -69,20 +134,33 @@ def admin_panel(request, group_id):
                         message = "Тільки модератори можуть бути знижені до учасників."
 
                 elif action == 'ban_user':
-                    # Отримання деталей бана
-                    message_text = request.POST.get('message')
                     end_date = request.POST.get('end_date')
+                    news_title = request.POST.get('news_title')
+                    news_description = request.POST.get('news_description')
+                    image = request.FILES.get('image')
 
-                    # Створення бану
-                    Ban.objects.create(user=user, message=message_text, end_date=end_date)
-                    user.is_active = False
-                    user.save()
-                    message = f"Користувач {user.email} заблокований до {end_date}."
+                    if not end_date:
+                        message = "Необхідно вказати дату завершення бану."
+                    else:
+                        # Створення бана
+                        Ban.objects.create(user=user, group=group, end_date=end_date)
+
+                        # Створення новини
+                        UserNews.objects.create(
+                            user=user,
+                            title=news_title,
+                            description=news_description,
+                            image=image,
+                        )
+                        message = f"Користувач {user.email} заблокований до {end_date}."
 
                 elif action == 'unban_user':
-                    Ban.objects.filter(user=user).delete()  # Видалення бана
-                    user.is_active = True
-                    user.save()
+                    Ban.objects.filter(user=user, group=group).delete()
+                    UserNews.objects.create(
+                        user=user,
+                        title=f"Вас розблоковано у групі {group.name}",
+                        description=f"Тепер ви можете знову взаємодіяти з групою {group.name}.",
+                    )
                     message = f"Користувач {user.email} розблокований."
 
         except User.DoesNotExist:
@@ -93,53 +171,56 @@ def admin_panel(request, group_id):
         'admins': admins,
         'moderators': moderators,
         'banned_users': banned_users,
+        'members': members,
+        "user_friends": user_friends,
+        'is_moderators': is_moderators,
         'message': message,
     })
 
 
-@login_required
+@login_required(login_url='/login/')
 def admin_survey_list(request, group_id):
     group = get_object_or_404(Group, id=group_id)
-    is_admin = GroupMembership.objects.filter(user=request.user, group=group, role='admin').exists()
-    membership = GroupMembership.objects.filter(user=request.user, group=group, role='admin').first()
-    if not membership:
-        return redirect('home')
+    is_admin = is_user_admin_or_moderator(request.user, group)
+
+    if not is_user_admin_or_moderator(request.user, group):
+        return redirect('group_detail', group_id=group.id)
 
     surveys = Survey.objects.filter(group=group)
     return render(request, 'portal_html/admin_survey_list.html', {'surveys': surveys, 'group': group, 'is_admin': is_admin})
 
 
-@login_required
+@login_required(login_url='/login/')
 def admin_notification_list(request, group_id):
     group = get_object_or_404(Group, id=group_id)
-    is_admin = GroupMembership.objects.filter(user=request.user, group=group, role='admin').exists()
-    membership = GroupMembership.objects.filter(user=request.user, group=group, role='admin').first()
-    if not membership:
-        return redirect('home')
+    is_admin = is_user_admin_or_moderator(request.user, group)
+
+    if not is_user_admin_or_moderator(request.user, group):
+        return redirect('group_detail', group_id=group.id)
 
     notifications = Notification.objects.filter(group=group)
     return render(request, 'portal_html/admin_notification_list.html', {'notifications': notifications, 'group': group, 'is_admin': is_admin})
 
 
-@login_required
+@login_required(login_url='/login/')
 def admin_event_list(request, group_id):
     group = get_object_or_404(Group, id=group_id)
-    is_admin = GroupMembership.objects.filter(user=request.user, group=group, role='admin').exists()
-    membership = GroupMembership.objects.filter(user=request.user, group=group, role='admin').first()
-    if not membership:
-        return redirect('home')
+    is_admin = is_user_admin_or_moderator(request.user, group)
+
+    if not is_user_admin_or_moderator(request.user, group):
+        return redirect('group_detail', group_id=group.id)
 
     events = Event.objects.filter(group=group)
     return render(request, 'portal_html/admin_event_list.html', {'events': events, 'group': group, 'is_admin': is_admin})
 
 
-@login_required
+@login_required(login_url='/login/')
 def admin_poll_list(request, group_id):
     group = get_object_or_404(Group, id=group_id)
-    is_admin = GroupMembership.objects.filter(user=request.user, group=group, role='admin').exists()
-    membership = GroupMembership.objects.filter(user=request.user, group=group, role='admin').first()
-    if not membership:
-        return redirect('home')
+    is_admin = is_user_admin_or_moderator(request.user, group)
+
+    if not is_user_admin_or_moderator(request.user, group):
+        return redirect('group_detail', group_id=group.id)
 
     polls = Poll.objects.filter(group=group)
     return render(request, 'portal_html/admin_poll_list.html', {'polls': polls, 'group': group, 'is_admin': is_admin})
@@ -147,13 +228,13 @@ def admin_poll_list(request, group_id):
 
 def register(request):
     if request.method == 'POST':
-        form = CustomUserCreationForm(request.POST, request.FILES)
+        form = RegistrationForm(request.POST, request.FILES)
         if form.is_valid():
             user = form.save()
             login(request, user)
-            return redirect('home')  # Змініть на вашу домашню сторінку
+            return redirect('home')  # Замініть 'home' на ім'я вашої домашньої сторінки
     else:
-        form = CustomUserCreationForm()
+        form = RegistrationForm()
     return render(request, 'portal_html/register.html', {'form': form})
 
 
@@ -176,19 +257,21 @@ def user_login(request):
     return render(request, 'portal_html/login.html', {'form': form})
 
 
+@login_required(login_url='/login/')
 def logout_view(request):
     logout(request)
     return redirect('home')  # Перенаправлення на головну сторінку
 
 
-@login_required
+@login_required(login_url='/login/')
 def delete_profile(request):
     if request.method == 'POST':
         request.user.delete()  # Видалення акаунта
         return redirect('home')  # Перенаправлення на головну сторінку
     return redirect('user_profile')
 
-@login_required
+
+@login_required(login_url='/login/')
 def user_profile(request):
     user = request.user
     context = {
@@ -197,14 +280,18 @@ def user_profile(request):
     return render(request, 'portal_html/user_profile.html', context)
 
 
-@login_required
+@login_required(login_url='/login/')
+def user_profile_by_icon(request, user_id):
+    user = get_object_or_404(User, id=user_id)
+    return render(request, 'portal_html/user_profile_by_icon.html', {'user': user})
+
+
+@login_required(login_url='/login/')
 def create_survey(request, group_id):
-    # Отримуємо групу за переданим ID
     group = get_object_or_404(Group, id=group_id)
 
-    # Перевірка, чи є користувач членом групи
-    if not GroupMembership.objects.filter(user=request.user, group=group).exists():
-        return HttpResponseForbidden("Ви не є членом цієї групи!")
+    if not is_user_admin_or_moderator(request.user, group):
+        return redirect('group_detail', group_id=group.id)
 
     if request.method == 'POST':
         survey_form = SurveyForm(request.POST, request.FILES)
@@ -223,16 +310,14 @@ def create_survey(request, group_id):
     })
 
 
-@login_required
+@login_required(login_url='/login/')
 def create_questions(request, survey_id):
     survey = get_object_or_404(Survey, id=survey_id)
     group = survey.group
 
-    # Перевірка, чи користувач є членом групи, до якої належить опитування
-    if not GroupMembership.objects.filter(user=request.user, group=survey.group).exists():
-        return HttpResponseForbidden("Ви не є членом цієї групи!")
+    if not is_user_admin_or_moderator(request.user, group):
+        return redirect('group_detail', group_id=group.id)
 
-    # Створення форм для кожного питання
     question_forms = [QuestionForm(prefix=f'question_{i}') for i in range(survey.question_count)]
 
     if request.method == 'POST':
@@ -259,15 +344,14 @@ def create_questions(request, survey_id):
     })
 
 
-@login_required
+@login_required(login_url='/login/')
 def create_answers(request, survey_id):
     survey = get_object_or_404(Survey, id=survey_id)
     group = survey.group
     questions = survey.questions.all()
 
-    # Перевірка, чи користувач є членом групи, до якої належить опитування
-    if not GroupMembership.objects.filter(user=request.user, group=survey.group).exists():
-        return HttpResponseForbidden("Ви не є членом цієї групи!")
+    if not is_user_admin_or_moderator(request.user, group):
+        return redirect('group_detail', group_id=group.id)
 
     if request.method == 'POST':
         answer_forms = []
@@ -279,7 +363,7 @@ def create_answers(request, survey_id):
                     answer.question = question  # Прив'язуємо відповідь до питання
                     answer.save()
                 answer_forms.append(form)
-        return redirect('home')  # Перенаправлення на домашню сторінку
+        return redirect('group_surveys', group_id=group.id)  # Перенаправлення на домашню сторінку
 
     else:
         answer_forms = []
@@ -294,15 +378,19 @@ def create_answers(request, survey_id):
     })
 
 
-@login_required(login_url='home')
+@login_required(login_url='/login/')
 def take_survey(request, survey_id):
     survey = get_object_or_404(Survey, id=survey_id)
     group = survey.group # Отримуємо групу через опитування
-    is_admin = GroupMembership.objects.filter(user=request.user, group=group, role='admin').exists()
+    is_admin = is_user_admin_or_moderator(request.user, group)
+
+    user_ban = check_user_ban_in_group(request.user, group)
+    if user_ban:
+        return user_ban
 
     # Перевірка, чи термін дії опитування ще не завершився
     if survey.active_until < timezone.now():
-        return redirect('home')
+        return redirect('group_surveys', group_id=group.id)
 
     questions = survey.questions.all()
     initial_answers = {
@@ -324,7 +412,7 @@ def take_survey(request, survey_id):
                 )
             survey.participant_count += 1
             survey.save()
-            return redirect('home')
+            return redirect('group_surveys', group_id=group.id)
     else:
         form = SurveyResponseForm(questions=questions, initial=initial_answers)
 
@@ -336,12 +424,15 @@ def take_survey(request, survey_id):
     })
 
 
-@login_required(login_url='home')
+@login_required(login_url='/login/')
 def survey_responses(request, survey_id):
     survey = get_object_or_404(Survey, id=survey_id)
     group = survey.group  # Отримуємо групу через опитування
-    is_admin = GroupMembership.objects.filter(user=request.user, group=group, role='admin').exists()
+    is_admin = is_user_admin_or_moderator(request.user, group)
     survey_results = SurveyResult.objects.filter(survey=survey)
+
+    if not is_user_admin_or_moderator(request.user, group):
+        return redirect('group_detail', group_id=group.id)
 
     # Отримати унікальних користувачів, які пройшли це опитування
     unique_users = {}
@@ -381,11 +472,11 @@ def survey_responses(request, survey_id):
     return render(request, 'portal_html/survey_responses.html', context)
 
 
-@login_required(login_url='home')
+@login_required(login_url='/login/')
 def user_survey_responses(request, survey_id, user_id):
     survey = get_object_or_404(Survey, id=survey_id)
     group = survey.group  # Отримуємо групу через опитування
-    is_admin = GroupMembership.objects.filter(user=request.user, group=group, role='admin').exists()
+    is_admin = is_user_admin_or_moderator(request.user, group)
 
     # Перевірка, чи користувач є власником відповіді або адміністратором
     if request.user.id != user_id and not request.user.is_staff:
@@ -400,17 +491,25 @@ def user_survey_responses(request, survey_id, user_id):
         'is_admin': is_admin# Передаємо групу в контекст
     })
 
-@login_required
+@login_required(login_url='/login/')
 def delete_survey(request, survey_id):
     survey = get_object_or_404(Survey, id=survey_id)
+    group = survey.group
+
+    if not is_user_admin_or_moderator(request.user, group):
+        return redirect('group_detail', group_id=group.id)
+
     survey.delete()
-    return redirect('home')
+    return redirect('group_surveys', group_id=group.id)
 
 
-@login_required
+@login_required(login_url='/login/')
 def create_notification(request, group_id):
     group = get_object_or_404(Group, id=group_id)  # Отримуємо групу за ID
-    is_admin = GroupMembership.objects.filter(user=request.user, group=group, role='admin').exists()
+    is_admin = is_user_admin_or_moderator(request.user, group)
+
+    if not is_user_admin_or_moderator(request.user, group):
+        return redirect('group_detail', group_id=group.id)
 
     if request.method == 'POST':
         form = NotificationForm(request.POST, request.FILES)
@@ -429,24 +528,36 @@ def create_notification(request, group_id):
     })
 
 
-@login_required
+@login_required(login_url='/login/')
+def notification_detail(request, notification_id):
+    notification = get_object_or_404(Notification, id=notification_id)
+    group = notification.group
+    is_admin = is_user_admin_or_moderator(request.user, group)
+
+    return render(request, "portal_html/notification_detail.html", {"notification": notification, 'group': group, 'is_admin': is_admin})
+
+
+@login_required(login_url='/login/')
 def delete_notification(request, notification_id):
     notification = get_object_or_404(Notification, id=notification_id)
+    group = notification.group
 
-    # Перевіряємо, чи є у користувача права для видалення
-    if request.user.is_staff or request.user == notification.created_by:
-        notification.delete()
-        return redirect('home')  # Перенаправляємо на список новин
-    else:
-        # Якщо у користувача немає прав, то редіректимо на домашню сторінку
-        return redirect('home')
+    if not is_user_admin_or_moderator(request.user, group):
+        return redirect('group_detail', group_id=group.id)
+
+    notification.delete()
+    return redirect('group_notifications', group_id=group.id)
 
 
 # Сторінка створення нового посту
-@login_required
+@login_required(login_url='/login/')
 def create_forum_post(request, group_id):
     group = get_object_or_404(Group, id=group_id)
-    is_admin = GroupMembership.objects.filter(user=request.user, group=group, role='admin').exists()# Отримуємо групу за переданим ID
+    is_admin = is_user_admin_or_moderator(request.user, group)
+
+    user_ban = check_user_ban_in_group(request.user, group)
+    if user_ban:
+        return user_ban
 
     if request.method == 'POST':
         form = ForumPostForm(request.POST, request.FILES)
@@ -455,29 +566,34 @@ def create_forum_post(request, group_id):
             post.author = request.user  # Призначаємо автора
             post.group = group  # Прив’язуємо до групи
             post.save()
-            return redirect('home')  # Після збереження перенаправляємо на список постів
+            return redirect('group_forum', group_id=group.id)  # Після створення перенаправляємо на головну сторінку
     else:
         form = ForumPostForm()
 
     return render(request, 'portal_html/create_forum_post.html', {'form': form, 'group': group, 'is_admin': is_admin})
 
 
+@login_required(login_url='/login/')
 def forum_post_update(request, post_id):
     post = get_object_or_404(ForumPost, id=post_id)
     group = post.group
-    is_admin = GroupMembership.objects.filter(user=request.user, group=group, role='admin').exists()
+    is_admin = is_user_admin_or_moderator(request.user, group)
+
+    user_ban = check_user_ban_in_group(request.user, group)
+    if user_ban:
+        return user_ban
 
     # Перевірка, чи користувач є автором посту
     if request.user != post.author:
-        return redirect('home')
+        return redirect('group_forum', group_id=group.id)
 
     if request.method == 'POST':
-        form = ForumPostForm(request.POST, request.FILES, instance=post)
+        form = ForumEditPostForm(request.POST, request.FILES, instance=post)
         if form.is_valid():
             form.save()
             return redirect('forum_post_detail', post_id=post.id)
     else:
-        form = ForumPostForm(instance=post)
+        form = ForumEditPostForm(instance=post)
 
     return render(request, 'portal_html/forum_post_edit.html', {
         'form': form,
@@ -486,25 +602,45 @@ def forum_post_update(request, post_id):
     })
 
 
+@login_required(login_url='/login/')
 def forum_post_delete(request, post_id):
     post = get_object_or_404(ForumPost, id=post_id)
+    group = post.group
+
+    user_ban = check_user_ban_in_group(request.user, group)
+    if user_ban:
+        return user_ban
 
     # Перевірка, чи користувач є автором посту
     if request.user != post.author:
-        return redirect('home')
+        return redirect('group_forum', group_id=group.id)
 
     if request.method == 'POST':
         post.delete()
-        return redirect('forum_list')  # Переходимо на список форумів після видалення
+        return redirect('group_forum', group_id=group.id)  # Переходимо на список форумів після видалення
 
 
-@login_required
+@login_required(login_url='/login/')
 def forum_post_detail(request, post_id):
     post = get_object_or_404(ForumPost, id=post_id)
     group = post.group
-    is_admin = GroupMembership.objects.filter(user=request.user, group=group, role='admin').exists()
+    is_admin = is_user_admin_or_moderator(request.user, group)
     comments = post.comments.filter(parent_comment__isnull=True)
     comment_form = CommentForm()
+
+    user_ban = check_user_ban_in_group(request.user, group)
+
+    if user_ban:
+        # Вивести лише сторінку з повідомленням, що користувач заблокований, без можливості взаємодії
+        return render(request, 'portal_html/forum_post_detail.html', {
+            'post': post,
+            'comments': comments,
+            'comment_form': comment_form,
+            'group': group,
+            'is_admin': is_admin,
+            'user_banned': True,  # Відправляємо прапор, що користувач заблокований
+        })
+
 
     if request.method == 'POST':
         # Перевірка, чи це редагування коментаря
@@ -517,9 +653,10 @@ def forum_post_detail(request, post_id):
         comment_id = request.POST.get("comment_id")
         if comment_id:
             comment = get_object_or_404(Comment, id=comment_id, author=request.user)
-            comment.content = request.POST.get("content")
-            comment.save()
-            return redirect('forum_post_detail', post_id=post.id)
+            edit_comment_form = CommentEditForm(request.POST, instance=comment)
+            if edit_comment_form.is_valid():
+                edit_comment_form.save()
+                return redirect('forum_post_detail', post_id=post.id)
 
         # Обробка додавання нового коментаря
         comment_form = CommentForm(request.POST)
@@ -535,6 +672,7 @@ def forum_post_detail(request, post_id):
             new_comment.save()
             return redirect('forum_post_detail', post_id=post.id)
 
+
     return render(request, 'portal_html/forum_post_detail.html', {
         'post': post,
         'comments': comments,
@@ -544,15 +682,19 @@ def forum_post_detail(request, post_id):
     })
 
 
-@login_required
+@login_required(login_url='/login/')
 def create_forum_post_addition(request, post_id):
     post = get_object_or_404(ForumPost, id=post_id)
     group = post.group
-    is_admin = GroupMembership.objects.filter(user=request.user, group=group, role='admin').exists()
+    is_admin = is_user_admin_or_moderator(request.user, group)
+
+    user_ban = check_user_ban_in_group(request.user, group)
+    if user_ban:
+        return user_ban
 
     # Перевірка, чи користувач є автором посту
     if request.user != post.author:
-        return redirect('forum_post_detail', post_id=post.id)
+        return redirect('group_forum', group_id=group.id)
 
     if request.method == 'POST':
         form = ForumPostAdditionForm(request.POST, request.FILES)
@@ -570,55 +712,67 @@ def create_forum_post_addition(request, post_id):
     return render(request, 'portal_html/create_addition.html', {'post': post, 'form': form, 'group': group, 'is_admin': is_admin})
 
 
-@login_required
+@login_required(login_url='/login/')
 def edit_forum_post_addition(request, update_id):
     update = get_object_or_404(ForumAddition, id=update_id)
     post = update.forum_post
     group = post.group
-    is_admin = GroupMembership.objects.filter(user=request.user, group=group, role='admin').exists()
+    is_admin = is_user_admin_or_moderator(request.user, group)
+
+    user_ban = check_user_ban_in_group(request.user, group)
+    if user_ban:
+        return user_ban
 
     # Перевірка, чи користувач є автором апдейту
     if request.user != update.forum_post.author:
-        return redirect('forum_post_detail', post_id=update.forum_post.id)
+        return redirect('group_forum', group_id=group.id)
 
     if request.method == 'POST':
-        form = ForumPostAdditionForm(request.POST, request.FILES, instance=update)
+        form = ForumEditPostAdditionForm(request.POST, request.FILES, instance=update)
         if form.is_valid():
             form.save()
             return redirect('forum_post_detail', post_id=update.forum_post.id)
     else:
-        form = ForumPostAdditionForm(instance=update)
+        form = ForumEditPostAdditionForm(instance=update)
 
     return render(request, 'portal_html/edit_addition.html', {'form': form, 'update': update, 'group': group, 'is_admin': is_admin})
 
 
-@login_required
+@login_required(login_url='/login/')
 def delete_addition(request, addition_id):
     addition = get_object_or_404(ForumAddition, id=addition_id)
     post_id = addition.forum_post.id
     post = addition.forum_post
+    group = post.group
+
+    user_ban = check_user_ban_in_group(request.user, group)
+    if user_ban:
+        return user_ban
 
     # Перевірка, чи користувач є автором посту
     if request.user != post.author:
-        return redirect('home')
+        return redirect('group_forum', group_id=group.id)
 
     if request.method == 'POST':
         addition.delete()
-        return redirect('forum_post_detail', post_id=post_id)
+        return redirect('forum_post_detail', post_id=post.id)
 
 
-@login_required
+@login_required(login_url='/login/')
 def portfolio_view(request, group_id):
     group = get_object_or_404(Group, id=group_id)
-    is_admin = GroupMembership.objects.filter(user=request.user, group=group, role='admin').exists()
+    is_admin = is_user_admin_or_moderator(request.user, group)
     projects = ForumPost.objects.filter(status='project', author=request.user, group=group)
     return render(request, 'portal_html/portfolio.html', {'projects': projects, 'group': group, 'is_admin': is_admin})
 
 
-@login_required
+@login_required(login_url='/login/')
 def create_event(request, group_id):
     group = get_object_or_404(Group, id=group_id)  # Отримуємо групу за ID
-    is_admin = GroupMembership.objects.filter(user=request.user, group=group, role='admin').exists()
+    is_admin = is_user_admin_or_moderator(request.user, group)
+
+    if not is_user_admin_or_moderator(request.user, group):
+        return redirect('group_detail', group_id=group.id)
 
     if request.method == 'POST':
         form = EventForm(request.POST, request.FILES)
@@ -638,11 +792,11 @@ def create_event(request, group_id):
 
 
 
-@login_required
+@login_required(login_url='/login/')
 def calendar_view(request, group_id):
     # Отримуємо групу за ID
     group = get_object_or_404(Group, id=group_id)
-    is_admin = GroupMembership.objects.filter(user=request.user, group=group, role='admin').exists()
+    is_admin = is_user_admin_or_moderator(request.user, group)
 
     # Фільтруємо події, пов'язані з цією групою
     events = Event.objects.filter(group=group, end_time__gte=timezone.now())
@@ -654,6 +808,7 @@ def calendar_view(request, group_id):
     })
 
 
+@login_required(login_url='/login/')
 def events_json(request, group_id):
     # Отримуємо групу за ID
     group = get_object_or_404(Group, id=group_id)
@@ -693,6 +848,7 @@ def events_json(request, group_id):
     return JsonResponse(data, safe=False)
 
 
+@login_required(login_url='/login/')
 def events_by_date_json(request, date):
     # Перетворюємо отриману дату у формат datetime
     selected_date = datetime.strptime(date, "%Y-%m-%d").date()
@@ -705,7 +861,7 @@ def events_by_date_json(request, date):
 
     # Знаходимо групу для першої події (припускаємо, що всі події належать одній групі)
     group = events.first().group if events.exists() else None
-    is_admin = GroupMembership.objects.filter(user=request.user, group=group, role='admin').exists()
+    is_admin = is_user_admin_or_moderator(request.user, group)
 
     # Відображаємо список подій
     return render(request, 'portal_html/events_by_date.html', {
@@ -716,26 +872,34 @@ def events_by_date_json(request, date):
     })
 
 
+@login_required(login_url='/login/')
 def event_detail(request, event_id):
     event = get_object_or_404(Event, id=event_id)
     group = event.group
-    is_admin = GroupMembership.objects.filter(user=request.user, group=group, role='admin').exists()
+    is_admin = is_user_admin_or_moderator(request.user, group)
     return render(request, 'portal_html/event_detail.html', {'event': event, 'group': group, 'is_admin': is_admin})
 
 
-@login_required
+@login_required(login_url='/login/')
 def delete_event(request, event_id):
-    if request.user.is_staff:  # Перевірка, чи користувач є адміністратором
-        event = get_object_or_404(Event, id=event_id)
-        event.delete()
-    return redirect('home')
+    event = get_object_or_404(Event, id=event_id)
+    group = event.group
+
+    if not is_user_admin_or_moderator(request.user, group):
+        return redirect('group_detail', group_id=group.id)
+
+    event.delete()
+    return redirect('calendar_view', group_id=group.id)
 
 
-@login_required
+@login_required(login_url='/login/')
 def edit_event(request, event_id):
     event = get_object_or_404(Event, id=event_id)
     group = event.group
-    is_admin = GroupMembership.objects.filter(user=request.user, group=group, role='admin').exists()
+    is_admin = is_user_admin_or_moderator(request.user, group)
+
+    if not is_user_admin_or_moderator(request.user, group):
+        return redirect('group_detail', group_id=group.id)
 
     # Якщо форма була надіслана
     if request.method == 'POST':
@@ -749,9 +913,13 @@ def edit_event(request, event_id):
     return render(request, 'portal_html/edit_event.html', {'form': form, 'event': event, 'group': group, 'is_admin': is_admin})
 
 
+@login_required(login_url='/login/')
 def create_poll_step_1(request, group_id):
     group = get_object_or_404(Group, id=group_id)
-    is_admin = GroupMembership.objects.filter(user=request.user, group=group, role='admin').exists()
+    is_admin = is_user_admin_or_moderator(request.user, group)
+
+    if not is_user_admin_or_moderator(request.user, group):
+        return redirect('group_detail', group_id=group.id)
 
     if request.method == 'POST':
         poll_form = PollForm(request.POST, request.FILES)
@@ -772,11 +940,15 @@ def create_poll_step_1(request, group_id):
     })
 
 
+@login_required(login_url='/login/')
 def create_poll_step_2(request, poll_id):
     poll = Poll.objects.get(id=poll_id)
     group = poll.group
-    is_admin = GroupMembership.objects.filter(user=request.user, group=group, role='admin').exists()
+    is_admin = is_user_admin_or_moderator(request.user, group)
     candidates_count = poll.candidate_count
+
+    if not is_user_admin_or_moderator(request.user, group):
+        return redirect('group_detail', group_id=group.id)
 
     if request.method == 'POST':
         # Обробляємо дані для кожної форми
@@ -794,7 +966,7 @@ def create_poll_step_2(request, poll_id):
                 all_valid = False
 
         if all_valid:
-            return redirect('home')  # Перенаправляємо на список голосувань
+            return redirect('group_polls', group_id=group.id)  # Перенаправляємо на список голосувань
 
     else:
         # Створюємо список порожніх форм для кандидатів
@@ -811,15 +983,19 @@ def create_poll_step_2(request, poll_id):
     })
 
 
-@login_required
+@login_required(login_url='/login/')
 def vote_poll(request, poll_id):
     poll = get_object_or_404(Poll, id=poll_id)
     group = poll.group
-    is_admin = GroupMembership.objects.filter(user=request.user, group=group, role='admin').exists()
+    is_admin = is_user_admin_or_moderator(request.user, group)
+
+    user_ban = check_user_ban_in_group(request.user, group)
+    if user_ban:
+        return user_ban
 
     # Перевірка, чи голосування ще не завершилось
     if poll.end_date < timezone.now().date():  # Порівнюємо дати
-        return redirect('home')  # Якщо голосування закінчилось, показуємо повідомлення
+        return redirect('group_polls', group_id=group.id)  # Якщо голосування закінчилось, показуємо повідомлення
 
     # Отримуємо кандидатів
     candidates = poll.candidates.all()[:2]  # Вибираємо два кандидати
@@ -840,14 +1016,16 @@ def vote_poll(request, poll_id):
         # Створюємо новий голос
         Vote.objects.create(user=request.user, candidate=candidate, poll=poll)
 
-        return redirect('home')  # Після голосування перенаправляємо на список голосувань
+        return redirect('group_polls', group_id=group.id)  # Після голосування перенаправляємо на список голосувань
 
     return render(request, 'portal_html/vote_poll.html', {'poll': poll, 'candidates': candidates, 'group': group, 'is_admin': is_admin})
 
 
-@login_required
+@login_required(login_url='/login/')
 def poll_results(request, poll_id):
     poll = Poll.objects.get(id=poll_id)
+    group = poll.group
+    is_admin = is_user_admin_or_moderator(request.user, group)
     candidates = Candidate.objects.filter(poll=poll)
     chart_data = {}
 
@@ -864,28 +1042,45 @@ def poll_results(request, poll_id):
     return render(request, 'portal_html/poll_results.html', {
         'poll': poll,
         'chart_data': chart_data,
+        'group': group,
+        'is_admin': is_admin,
     })
 
 
-@login_required
+@login_required(login_url='/login/')
 def delete_poll(request, poll_id):
     poll = get_object_or_404(Poll, id=poll_id)
+    group = poll.group
 
-    if request.method == 'POST':  # Перевіряємо, що це POST запит
-        poll.delete()  # Видаляємо голосування
-        return redirect('home')  # Переходимо на адмін панель після видалення
+    if not is_user_admin_or_moderator(request.user, group):
+        return redirect('group_detail', group_id=group.id)
 
-    return redirect('home')
+    poll.delete()
+    return redirect('group_polls', group_id=group.id)
 
 
 
-@login_required
+
+@login_required(login_url='/login/')
 def gallery_item_detail(request, item_id):
     gallery_item = get_object_or_404(GalleryItem, id=item_id)
     group = gallery_item.group
-    is_admin = GroupMembership.objects.filter(user=request.user, group=group, role='admin').exists()
+    is_admin = is_user_admin_or_moderator(request.user, group)
     comments = gallery_item.comments.filter(parent_comment__isnull=True)
     comment_form = CommentForm()
+
+    user_ban = check_user_ban_in_group(request.user, group)
+
+    if user_ban:
+        # Вивести лише сторінку з повідомленням, що користувач заблокований, без можливості взаємодії
+        return render(request, 'portal_html/gallery_item_detail.html', {
+            'gallery_item': gallery_item,
+            'comments': comments,
+            'comment_form': comment_form,
+            'group': group,
+            'is_admin': is_admin,
+            'user_banned': True,  # Відправляємо прапор, що користувач заблокований
+        })
 
     if request.method == 'POST':
 
@@ -896,13 +1091,13 @@ def gallery_item_detail(request, item_id):
             comment_to_delete.delete()
             return redirect('gallery_item_detail', item_id=gallery_item.id)
 
-        # Редагування коментаря
         comment_id = request.POST.get("comment_id")
         if comment_id:
             comment = get_object_or_404(Comment, id=comment_id, author=request.user)
-            comment.content = request.POST.get("content")
-            comment.save()
-            return redirect('gallery_item_detail', item_id=gallery_item.id)
+            edit_comment_form = CommentEditForm(request.POST, instance=comment)
+            if edit_comment_form.is_valid():
+                edit_comment_form.save()
+                return redirect('gallery_item_detail', item_id=gallery_item.id)
 
         # Додавання нового коментаря
         comment_form = CommentForm(request.POST)
@@ -929,37 +1124,59 @@ def gallery_item_detail(request, item_id):
     })
 
 
-@login_required
+@login_required(login_url='/login/')
 def delete_gallery_item(request, item_id):
     item = get_object_or_404(GalleryItem, id=item_id)
-    item.delete()
-    return redirect('home')
-
-
-@login_required
-def edit_gallery_item(request, item_id):
-    item = get_object_or_404(GalleryItem, id=item_id, author=request.user)  # Заміна uploaded_by на author
     group = item.group
-    is_admin = GroupMembership.objects.filter(user=request.user, group=group, role='admin').exists()
+
+    user_ban = check_user_ban_in_group(request.user, group)
+    if user_ban:
+        return user_ban
+
+    if request.user != item.author:
+        return redirect('group_gallery', group_id=group.id)
+
+    item.delete()
+    return redirect('group_gallery', group_id=group.id)
+
+
+@login_required(login_url='/login/')
+def edit_gallery_item(request, item_id):
+    item = get_object_or_404(GalleryItem, id=item_id)
+    group = item.group
+    is_admin = is_user_admin_or_moderator(request.user, group)
+
+    user_ban = check_user_ban_in_group(request.user, group)
+    if user_ban:
+        return user_ban
+
+    if request.user != item.author:
+        return redirect('group_gallery', group_id=group.id)
 
     if request.method == 'POST':
-        form = GalleryItemForm(request.POST, instance=item)
+        form = GalleryEditItemForm(request.POST, request.FILES, instance=item)
         if form.is_valid():
-            item.title = form.cleaned_data['title']
-            item.description = form.cleaned_data['description']
-            item.save(update_fields=['title', 'description'])
-            return redirect('gallery')
+            form.save()
+            return redirect('gallery_item_detail', item_id=item.id)
     else:
-        form = GalleryItemForm(instance=item)
-        form.fields.pop('file')  # При редагуванні файл не можна змінювати
+        form = GalleryEditItemForm(instance=item)
 
-    return render(request, 'portal_html/edit_gallery_item.html', {'form': form, 'item': item, 'group': group, 'is_admin': is_admin})
+    return render(request, 'portal_html/edit_gallery_item.html', {
+        'form': form,
+        'item': item,
+        'group': group,
+        'is_admin': is_admin
+    })
 
 
-@login_required
+@login_required(login_url='/login/')
 def create_post_gallery(request, group_id):
     group = get_object_or_404(Group, id=group_id)
-    is_admin = GroupMembership.objects.filter(user=request.user, group=group, role='admin').exists()# Отримуємо групу за ID
+    is_admin = is_user_admin_or_moderator(request.user, group)
+
+    user_ban = check_user_ban_in_group(request.user, group)
+    if user_ban:
+        return user_ban
 
     if request.method == 'POST':
         form = GalleryItemForm(request.POST, request.FILES)
@@ -968,17 +1185,19 @@ def create_post_gallery(request, group_id):
             gallery_item.author = request.user  # Призначаємо автора
             gallery_item.group = group  # Прив’язуємо до групи
             gallery_item.save()
-            return redirect('gallery')  # Після збереження перенаправляємо на список галереї
+            return redirect('group_detail', group_id=group.id)  # Після збереження перенаправляємо на список галереї
     else:
         form = GalleryItemForm()
 
     return render(request, 'portal_html/upload_gallery_item.html', {'form': form, 'group': group, 'is_admin': is_admin})
 
 
-class FriendsView(ListView):
+
+class FriendsView(LoginRequiredMixin, ListView):
     model = User
     template_name = 'portal_html/friends_list.html'
     context_object_name = 'friends'
+    login_url = '/login/'
 
     def get_queryset(self):
         user = self.request.user
@@ -1048,6 +1267,7 @@ class FriendsView(ListView):
         })
 
 
+@login_required(login_url='/login/')
 def delete_friend(request, friend_id):
     if request.method == "POST":
         friend = get_object_or_404(User, id=friend_id)
@@ -1055,6 +1275,7 @@ def delete_friend(request, friend_id):
         return redirect('friends_list')
 
 
+@login_required(login_url='/login/')
 def handle_friend_request(request, request_id):
     # Шукаємо запит на дружбу
     friend_request = get_object_or_404(FriendRequest, id=request_id)
@@ -1082,13 +1303,27 @@ def handle_friend_request(request, request_id):
     return redirect('friends_list')
 
 
-@login_required
+@login_required(login_url='/login/')
 def create_group(request):
     if request.method == 'POST':
         form = GroupForm(request.POST, request.FILES)
         if form.is_valid():
             # Створюємо нову групу
-            group = form.save()
+            group = form.save(commit=False)
+
+            # Якщо зображення не вибрано, встановлюємо випадкове зображення з 5 доступних
+            if not group.image:
+                # Папка з резервними зображеннями
+                image_folder = os.path.join(settings.MEDIA_ROOT, 'default_group_images')
+
+                # Отримуємо всі файли з папки
+                available_images = os.listdir(image_folder)
+
+                # Вибір випадкового зображення
+                random_image = random.choice(available_images)
+                group.image = os.path.join('default_group_images', random_image)
+
+            group.save()
 
             # Додаємо користувача як адміністратора групи
             GroupMembership.objects.create(
@@ -1104,7 +1339,7 @@ def create_group(request):
     return render(request, 'portal_html/create_group.html', {'form': form})
 
 
-@login_required
+@login_required(login_url='/login/')
 def group_list(request):
     groups = Group.objects.all()
     user_groups = {membership.group.id for membership in GroupMembership.objects.filter(user=request.user)}
@@ -1113,25 +1348,77 @@ def group_list(request):
     return render(request, 'portal_html/group_list.html', {'groups': groups})
 
 
-@login_required
+@login_required(login_url='/login/')
 def join_group(request, group_id):
     if request.method == "POST":
         group = get_object_or_404(Group, id=group_id)
         if not GroupMembership.objects.filter(user=request.user, group=group).exists():
             GroupMembership.objects.create(user=request.user, group=group)
         return JsonResponse({"message": "Приєднання успішне"}, status=200)
-    return JsonResponse({"error": "Неправильний метод запиту"}, status=400)
+    else:
+        return JsonResponse({"error": "Неправильний метод запиту"}, status=400)
 
 
+@login_required(login_url='/login/')
+def leave_group(request, group_id):
+    group = get_object_or_404(Group, id=group_id)
+    membership = GroupMembership.objects.filter(user=request.user, group=group).first()
+
+    if not membership:
+        return redirect('group_detail', group_id=group.id)
+
+    elif membership.role == 'admin':
+        return redirect('group_detail', group_id=group.id)
+
+    else:
+        # Видаляємо членство
+        membership.delete()
+        return redirect('group_list')
+
+
+@login_required(login_url='/login/')
 def group_detail(request, group_id):
     group = get_object_or_404(Group, id=group_id)
-    is_admin = GroupMembership.objects.filter(user=request.user, group=group, role='admin').exists()
+    is_admin = is_user_admin_or_moderator(request.user, group)
     return render(request, 'portal_html/group_detail.html', {'group': group, 'is_admin': is_admin})
 
 
+@login_required(login_url='/login/')
+def delete_group(request, group_id):
+    group = get_object_or_404(Group, id=group_id)
+
+    if not is_group_admin(request.user, group):
+        return redirect('group_detail', group_id=group.id)
+
+    group.delete()
+    return redirect("group_list")  # Редирект на список груп після видалення
+
+
+
+@login_required(login_url='/login/')
+def edit_group(request, group_id):
+    group = get_object_or_404(Group, id=group_id)
+    membership = group.memberships.filter(user=request.user, role='admin').first()
+
+    # Перевірка, чи є користувач адміністратором
+    if not is_group_admin(request.user, group):
+        return redirect('group_detail', group_id=group.id)
+
+    if request.method == 'POST':
+        form = GroupEditForm(request.POST, request.FILES, instance=group)
+        if form.is_valid():
+            form.save()
+            return redirect('group_detail', group_id=group.id)
+    else:
+        form = GroupEditForm(instance=group)
+
+    return render(request, 'portal_html/edit_group.html', {'form': form, 'group': group})
+
+
+@login_required(login_url='/login/')
 def gallery_view(request, group_id):
     group = get_object_or_404(Group, id=group_id)
-    is_admin = GroupMembership.objects.filter(user=request.user, group=group, role='admin').exists()
+    is_admin = is_user_admin_or_moderator(request.user, group)
     query = request.GET.get('search', '')
     file_type = request.GET.get('file_type', '')
 
@@ -1152,32 +1439,137 @@ def gallery_view(request, group_id):
     })
 
 
+@login_required(login_url='/login/')
 def poll_list(request, group_id):
     group = get_object_or_404(Group, id=group_id)
-    is_admin = GroupMembership.objects.filter(user=request.user, group=group, role='admin').exists()
-    polls = Poll.objects.filter(group=group)  # Фільтруємо за групою
-    return render(request, 'portal_html/poll_list.html', {'group': group, 'polls': polls, 'is_admin': is_admin})
+    is_admin = is_user_admin_or_moderator(request.user, group)
+    search_query = request.GET.get('search', '')
+    polls = Poll.objects.filter(group=group)
+
+    if search_query:
+        polls = polls.filter(
+            Q(title__icontains=search_query) | Q(description__icontains=search_query)
+        )
+
+    return render(request, 'portal_html/poll_list.html', {
+        'group': group,
+        'polls': polls,
+        'is_admin': is_admin
+    })
 
 
+@login_required(login_url='/login/')
 def forum_list(request, group_id):
     group = get_object_or_404(Group, id=group_id)
-    is_admin = GroupMembership.objects.filter(user=request.user, group=group, role='admin').exists()
-    posts = ForumPost.objects.filter(group=group, access='open').order_by('-created_at')  # Фільтруємо за групою
-    return render(request, 'portal_html/forum_list.html', {'group': group, 'posts': posts, 'is_admin': is_admin})
+    is_admin = is_user_admin_or_moderator(request.user, group)
+    search_query = request.GET.get('search', '')
+
+    # Початковий queryset постів
+    posts = ForumPost.objects.filter(group=group, access='open').order_by('-created_at')
+
+    # Фільтруємо пости за пошуковим запитом
+    if search_query:
+        posts = posts.filter(
+            Q(title__icontains=search_query) | Q(author__first_name__icontains=search_query)
+        )
+
+    return render(request, 'portal_html/forum_list.html', {
+        'group': group,
+        'posts': posts,
+        'is_admin': is_admin
+    })
 
 
+@login_required(login_url='/login/')
 def notification_list(request, group_id):
     group = get_object_or_404(Group, id=group_id)
-    is_admin = GroupMembership.objects.filter(user=request.user, group=group, role='admin').exists()
-    notifications = Notification.objects.filter(group=group).order_by('-created_at')  # Фільтруємо за групою
-    return render(request, 'portal_html/notification_list.html', {'group': group, 'notifications': notifications, 'is_admin': is_admin})
+    is_admin = is_user_admin_or_moderator(request.user, group)
+    search_query = request.GET.get('q', '')  # Получаем параметр "q" из строки запроса
+    notifications = Notification.objects.filter(group=group)
+
+    if search_query:
+        notifications = notifications.filter(Q(title__icontains=search_query))
+
+    notifications = notifications.order_by('-created_at')  # Сортируем по дате создания
+
+    return render(request, 'portal_html/notification_list.html', {
+        'group': group,
+        'notifications': notifications,
+        'is_admin': is_admin,
+        'search_query': search_query,  # Передаем строку запроса в шаблон
+    })
 
 
+@login_required(login_url='/login/')
 def survey_list(request, group_id):
     group = get_object_or_404(Group, id=group_id)
-    is_admin = GroupMembership.objects.filter(user=request.user, group=group, role='admin').exists()
-    surveys = Survey.objects.filter(group=group, active_until__gt=timezone.now())  # Фільтруємо за групою
-    return render(request, 'portal_html/survey_list.html', {'group': group, 'surveys': surveys, 'is_admin': is_admin})
+    is_admin = is_user_admin_or_moderator(request.user, group)
+    search_query = request.GET.get('search', '')
+    surveys = Survey.objects.filter(group=group, active_until__gt=timezone.now())
+    if search_query:
+        surveys = surveys.filter(
+            Q(title__icontains=search_query) | Q(description__icontains=search_query)
+        )
+
+    return render(request, 'portal_html/survey_list.html', {
+        'group': group,
+        'surveys': surveys,
+        'is_admin': is_admin
+    })
+
+
+@login_required(login_url='/login/')
+def user_news_list(request):
+    user_news = UserNews.objects.filter(user=request.user).order_by('-created_at')
+    return render(request, 'portal_html/user_news_list.html', {'user_news': user_news})
+
+
+@login_required(login_url='/login/')
+def delete_user_news(request, news_id):
+    news = get_object_or_404(UserNews, id=news_id)
+    if request.user != news.user:
+        return redirect('home')
+    news.delete()
+    return redirect('user_news_list')
+
+
+@login_required(login_url='/login/')
+def delete_member(request, group_id, user_id):
+    group = get_object_or_404(Group, id=group_id)
+
+    if not is_user_admin_or_moderator(request.user, group):
+        return redirect('group_detail', group_id=group.id)
+
+    user_to_remove = get_object_or_404(User, id=user_id)
+    user_membership = GroupMembership.objects.filter(user=user_to_remove, group=group).first()
+
+    if not user_membership:
+        return redirect('admin_panel', group_id=group.id)  # Якщо користувач не є учасником групи, перенаправляємо
+    user_membership.delete()
+    return redirect('admin_panel', group_id=group.id)
+
+
+@login_required(login_url='/login/')
+def add_members_to_group(request, group_id):
+    group = get_object_or_404(Group, id=group_id)
+
+    if not is_user_admin_or_moderator(request.user, group):
+        return redirect('group_detail', group_id=group.id)
+
+    if request.method == "POST":
+        user_ids = request.POST.getlist('user_ids')
+        if user_ids:
+            for user_id in user_ids:
+                user = get_object_or_404(User, id=user_id)
+                GroupMembership.objects.get_or_create(user=user, group=group)
+            return redirect('admin_panel', group_id=group.id)
+
+    return redirect('admin_panel', group_id=group.id)
+
+
+
+
+
 
 
 

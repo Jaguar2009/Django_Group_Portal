@@ -3,29 +3,35 @@
 {% block title %}Список голосувань{% endblock %}
 
 {% block body %}
-<h1>Список голосувань</h1>
 
-<table class="table">
-    <thead>
-        <tr>
-            <th>Назва</th>
-            <th>Опис</th>
-            <th>Дата завершення</th>
-            <th>Дії</th>
-        </tr>
-    </thead>
-    <tbody>
+<form method="GET" action="{% url 'group_polls' group.id %}" class="mb-4">
+    <div class="input-group">
+        <input type="text" name="search" class="form-control" placeholder="Пошук за назвою або описом" value="{{ request.GET.search }}">
+        <button class="btn btn-primary" type="submit">Пошук</button>
+    </div>
+</form>
+
+<div class="container mt-4">
+    <h1 class="mb-4 text-center">Список голосувань</h1>
+    <div class="row">
         {% for poll in polls %}
-            <tr>
-                <td>{{ poll.title }}</td>
-                <td>{{ poll.description }}</td>
-                <td>{{ poll.end_date }}</td>
-                <td>
-                    <a href="{% url 'vote_poll' poll.id %}">Проголосувати</a>
-                </td>
-            </tr>
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="card h-100 shadow-sm">
+                    {% if poll.image %}
+                        <img src="{{ poll.image.url }}" class="card-img-top" alt="Зображення голосування" style="object-fit: cover; height: 200px;">
+                    {% endif %}
+                    <div class="card-body">
+                        <h5 class="card-title">{{ poll.title }}</h5>
+                        <p class="card-text text-truncate">{{ poll.description|truncatechars:150 }}</p>
+                        <p class="text-muted">
+                            <strong>Дата завершення:</strong> {{ poll.end_date|date:"d.m.Y" }}
+                        </p>
+                        <a href="{% url 'vote_poll' poll.id %}" class="btn btn-primary w-100 mb-2">Проголосувати</a>
+                        <a href="{% url 'poll_results' poll_id=poll.id %}" class="btn btn-outline-secondary w-100">Переглянути результати голосування</a>
+                    </div>
+                </div>
+            </div>
         {% endfor %}
-    </tbody>
-</table>
-
+    </div>
+</div>
 {% endblock %}

@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block title %}Список Новин{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <h1>Ваші новини</h1>
+    {% if user_news %}
+        <div class="row">
+            {% for news in user_news %}
+                <div class="col-md-6 mb-4">
+                    <div class="card">
+                        {% if news.image %}
+                            <img src="{{ news.image.url }}" class="card-img-top" alt="Зображення новини">
+                        {% endif %}
+                        <div class="card-body">
+                            <h5 class="card-title">{{ news.title }}</h5>
+                            <p class="card-text">{{ news.description }}</p>
+                            <p class="text-muted"><small>Створено: {{ news.created_at|date:"d.m.Y H:i" }}</small></p>
+
+                            <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                                Видалити новину
+                              </button>
+
+                              <!-- Модальне вікно для підтвердження видалення -->
+                              <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+                                <div class="modal-dialog">
+                                  <div class="modal-content">
+                                    <div class="modal-header">
+                                      <h5 class="modal-title" id="deleteModalLabel">Підтвердження видалення</h5>
+                                      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                      <p>Ви впевнені, що хочете видалити цю новину?</p>
+                                    </div>
+                                    <div class="modal-footer">
+                                      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрити</button>
+                                      <!-- Форма для підтвердження видалення новини -->
+                                      <form method="POST" action="{% url 'delete_user_news' news.id %}">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-danger">Так, видалити</button>
+                                      </form>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="text-muted">У вас немає новин.</p>
+    {% endif %}
+</div>
+{% endblock %}

@@ -15,17 +15,18 @@ urlpatterns = [
     path('logout/', views.logout_view, name='logout'),
     path('delete_profile/', views.delete_profile, name='delete_profile'),
     path('profile/', views.user_profile, name='profile'),
+    path('profile/<int:user_id>/', views.user_profile_by_icon, name='user_profile'),
 
     path('groups/<int:group_id>/create-survey/', views.create_survey, name='create_survey'),
     path('survey/<int:survey_id>/create_questions/', views.create_questions, name='create_questions'),
     path('survey/<int:survey_id>/create_answers/', views.create_answers, name='create_answers'),
-
     path('surveys/<int:survey_id>/', views.take_survey, name='take_survey'),
     path('survey/<int:survey_id>/responses/', views.survey_responses, name='survey_responses'),
     path('survey/<int:survey_id>/user/<int:user_id>/answers/', views.user_survey_responses, name='user_survey_answers'),
     path('survey/<int:survey_id>/delete/', views.delete_survey, name='delete_survey'),
 
     path('group/<int:group_id>/create_notification/', views.create_notification, name='create_notification'),
+    path("notifications/<int:notification_id>/", views.notification_detail, name="notification_detail"),
     path('delete_notification/<int:notification_id>/', views.delete_notification, name='delete_notification'),
 
     path('forum/create/<int:group_id>/', views.create_forum_post, name='create_forum_post'),
@@ -66,11 +67,21 @@ urlpatterns = [
     path('create_group/', views.create_group, name='create_group'),
     path('group_list/', views.group_list, name='group_list'),
     path('groups/<int:group_id>/', views.group_detail, name='group_detail'),
+    path('search_groups/', views.search_groups, name='search_groups'),
     path('join-group/<int:group_id>/', views.join_group, name='join_group'),
+    path('group/<int:group_id>/leave/', views.leave_group, name='leave_group'),
+    path('group/<int:group_id>/delete/', views.delete_group, name='delete_group'),
+    path('groups/<int:group_id>/edit/', views.edit_group, name='edit_group'),
+    path('group/<int:group_id>/delete_member/<int:user_id>/', views.delete_member, name='delete_member'),
+    path('add_members_to_group/<int:group_id>/', views.add_members_to_group, name="add_members_to_group"),
 
     path('groups/<int:group_id>/gallery/', views.gallery_view, name='group_gallery'),
     path('groups/<int:group_id>/polls/', views.poll_list, name='group_polls'),
     path('groups/<int:group_id>/forum/', views.forum_list, name='group_forum'),
     path('groups/<int:group_id>/notifications/', views.notification_list, name='group_notifications'),
-    path('groups/<int:group_id>/surveys/', views.survey_list, name='group_surveys')
+    path('groups/<int:group_id>/surveys/', views.survey_list, name='group_surveys'),
+
+    path('news/', views.user_news_list, name='user_news_list'),
+    path('news/delete/<int:news_id>/', views.delete_user_news, name='delete_user_news'),
+
 ]

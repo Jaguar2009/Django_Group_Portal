@@ -8,10 +8,16 @@
 </head>
 <body>
     <header class="bg-primary text-white p-3">
-        <div class="container">
-            <h1>{{ group.name }}</h1>
+        <div class="container d-flex justify-content-between align-items-center">
+            <!-- Назва групи -->
+            <h1 class="mb-0">{{ group.name }}</h1>
+
+            <!-- Навігація -->
             <nav>
                 <ul class="nav">
+                    <li class="nav-item">
+                        <a href="{% url 'group_detail' group.id %}" class="btn btn-primary" target="_blank">Головна</a>
+                    </li>
                     <li class="nav-item">
                         <a class="nav-link text-white" href="{% url 'group_notifications' group.id %}">Оголошення</a>
                     </li>
@@ -35,18 +41,22 @@
                     {% endif %}
                 </ul>
             </nav>
+
+            <!-- Іконка користувача + посилання на профіль -->
             <div class="dropdown text-end">
-              <a href="#" class="d-block link-body-emphasis text-decoration-none dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                <img src="https://github.com/mdo.png" alt="mdo" width="32" height="32" class="rounded-circle">
-              </a>
-              <ul class="dropdown-menu text-small">
-                  <li><a class="dropdown-item" href="/register">Регестрація</a></li>
-                  <li><a class="dropdown-item" href="/login">Логін</a></li>
-                  <li><a class="dropdown-item" href="/profile">Профіль</a></li>
-                  <li><a href="{% url 'create_forum_post' group.id %}">Створити пост</a></li>
-                  <li><a class="dropdown-item" href="/create_group">Створити групу</a></li>
-                  <li><a href="{% url 'portfolio_view' group.id %}">Переглянути портфоліо</a></li>
-              </ul>
+                <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    <img src="https://github.com/mdo.png" alt="user_icon" width="32" height="32" class="rounded-circle me-2">
+                    <span class="text-white">Профіль</span>
+                </a>
+                <ul class="dropdown-menu text-small">
+                    <li><a class="dropdown-item" href="/register">Регестрація</a></li>
+                    <li><a class="dropdown-item" href="/login">Логін</a></li>
+                    <li><a class="dropdown-item" href="/profile">Профіль</a></li>
+                    <li><a class="dropdown-item" href="{% url 'create_forum_post' group.id %}">Створити пост</a></li>
+                    <li><a class="dropdown-item" href="{% url 'create_post_gallery' group.id %}">Створити галерею</a></li>
+                    <li><a class="dropdown-item" href="/create_group">Створити групу</a></li>
+                    <li><a class="dropdown-item" href="{% url 'portfolio_view' group.id %}">Переглянути портфоліо</a></li>
+                </ul>
             </div>
         </div>
     </header>

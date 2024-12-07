@@ -9,7 +9,7 @@ class UserAdmin(BaseUserAdmin):
     'email', 'first_name', 'last_name', 'is_staff', 'is_active', 'avatar')  # Додаємо статус і аватар
 
     fieldsets = (
-        (None, {'fields': ('email', 'first_name', 'last_name', 'password', 'status', 'avatar')}),
+        (None, {'fields': ('email', 'first_name', 'last_name', 'password', 'avatar')}),
         ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
     )
 

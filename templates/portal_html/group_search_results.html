@@ -3,9 +3,9 @@
 {% block title %}Список груп{% endblock %}
 
 {% block body %}
+<div class="container mt-4">
   <h2>Список груп</h2>
-
-  <div class="row">
+  <ul class="list-group">
     {% for group in groups %}
       <div class="col-md-4 mb-4">
         <div class="card" style="height: 100%;">
@@ -22,8 +22,11 @@
           </div>
         </div>
       </div>
+    {% empty %}
+      <p>Жодної групи не знайдено.</p>
     {% endfor %}
-  </div>
+  </ul>
+</div>
 
 <script>
     function joinAndOpenGroup(groupId) {
@@ -47,5 +50,4 @@
       });
     }
 </script>
-
 {% endblock %}

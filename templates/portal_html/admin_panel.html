@@ -5,10 +5,6 @@
 {% block body %}
 <div class="container mt-4">
     <h1>Адмін Панель Групи: {{ group.name }}</h1>
-    <p class="text-muted">{{ group.description }}</p>
-    <div class="text-center mt-4">
-        <img src="{{ group.image.url }}" alt="Зображення групи" class="img-fluid" style="max-height: 200px;">
-    </div>
     <div class="d-flex justify-content-around mt-4">
         <a href="{% url 'admin_survey_list' group.id %}" class="btn btn-primary">Список опитувань</a>
         <a href="{% url 'admin_notification_list' group.id %}" class="btn btn-primary">Список оголошень</a>
@@ -16,6 +12,42 @@
         <a href="{% url 'admin_poll_list' group.id %}" class="btn btn-primary">Список голосувань</a>
     </div>
 </div>
+
+{% if not is_moderators %}
+<h2 class="mt-4">Дії</h2>
+<div class="d-flex align-items-center mt-3">
+    <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteGroupModal">
+        Видалити групу
+    </button>
+
+    <a href="{% url 'edit_group' group.id %}" class="btn btn-warning ms-3">
+        Редагувати групу
+    </a>
+</div>
+{% endif %}
+
+<!-- Модальне вікно підтвердження видалення -->
+<div class="modal fade" id="deleteGroupModal" tabindex="-1" aria-labelledby="deleteGroupModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteGroupModalLabel">Підтвердити видалення</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрити"></button>
+            </div>
+            <div class="modal-body">
+                Ви впевнені, що хочете видалити групу "{{ group.name }}"? Цю дію не можна скасувати.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Скасувати</button>
+                <form method="post" action="{% url 'delete_group' group.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Видалити</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 
 {% if message %}
     <div class="alert alert-success mt-4">
@@ -100,7 +132,7 @@
                 <h5 class="modal-title" id="banUserModalLabel">Бан користувача</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрити"></button>
             </div>
-            <form method="post">
+            <form method="post" enctype="multipart/form-data">
                 {% csrf_token %}
                 <div class="modal-body">
                     <input type="hidden" name="action" value="ban_user">
@@ -109,8 +141,16 @@
                         <input type="email" class="form-control" id="email" name="email" required>
                     </div>
                     <div class="mb-3">
-                        <label for="message" class="form-label">Причина</label>
-                        <textarea class="form-control" id="message" name="message" rows="3" required></textarea>
+                        <label for="news_title" class="form-label">Заголовок новини</label>
+                        <input type="text" class="form-control" id="news_title" name="news_title" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="news_description" class="form-label">Опис новини</label>
+                        <textarea class="form-control" id="news_description" name="news_description" rows="3" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="image" class="form-label">Картинка</label>
+                        <input type="file" class="form-control" id="image" name="image">
                     </div>
                     <div class="mb-3">
                         <label for="end_date" class="form-label">Дата закінчення</label>
@@ -125,4 +165,74 @@
         </div>
     </div>
 </div>
+
+
+<h3>Учасники</h3>
+
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addMembersModal">Додати учасників</button>
+
+    <!-- Модальне вікно для додавання друзів -->
+    <div class="modal fade" id="addMembersModal" tabindex="-1" aria-labelledby="addMembersModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addMembersModalLabel">Додати друзів до групи</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form method="POST" action="{% url 'add_members_to_group' group.id %}">
+                        {% csrf_token %}
+                        {% for friend in user_friends %}
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="user_ids" value="{{ friend.id }}">
+                                <label class="form-check-label">
+                                    {{ friend.first_name }} {{ friend.last_name }} ({{ friend.email }})
+                                </label>
+                            </div>
+                        {% endfor %}
+                        <button type="submit" class="btn btn-success mt-2">Додати обраних друзів до групи</button>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрити</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <ul>
+        {% for member in members %}
+            <li>
+                {{ member.user.email }}
+                <!-- Кнопка для відкриття модального вікна -->
+                <button type="button" class="btn btn-danger btn-sm ml-2" data-bs-toggle="modal" data-bs-target="#deleteMemberModal{{ member.user.id }}">
+                    Видалити
+                </button>
+
+                <!-- Модальне вікно для підтвердження видалення -->
+                <div class="modal fade" id="deleteMemberModal{{ member.user.id }}" tabindex="-1" aria-labelledby="deleteMemberModalLabel" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="deleteMemberModalLabel">Підтвердження видалення</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                Ви впевнені, що хочете видалити користувача {{ member.user.email }} з цієї групи?
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрити</button>
+                                <!-- Форма для видалення -->
+                                <form method="post" action="{% url 'delete_member' group.id member.user.id %}" style="display:inline;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-danger">Видалити</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </li>
+        {% endfor %}
+    </ul>
+
 {% endblock %}

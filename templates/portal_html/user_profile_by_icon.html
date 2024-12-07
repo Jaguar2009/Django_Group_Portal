@@ -10,9 +10,9 @@
 
         <div class="row justify-content-center">
             <div class="col-md-8">
-                <div class="card">
+                <div class="card rounded">
                     <div class="card-header text-center">
-                        <h3>Інформація про користувача</h3>
+                        <img src="{{ user.avatar.url }}" alt="{{ user.first_name }}" class="img-fluid rounded-circle" style="width: 150px; height: 150px;">
                     </div>
                     <div class="card-body">
                         <dl class="row">
@@ -43,33 +43,6 @@
                             </dd>
                         </dl>
                     </div>
-
-                    <div class="card-footer text-center">
-                        <a href="{% url 'logout' %}" class="btn btn-warning">Вихід</a>
-                        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">Видалення профілю</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Модальне вікно підтвердження видалення профілю -->
-    <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="deleteModalLabel">Підтвердження видалення</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    Ви впевнені, що хочете видалити свій профіль? Це дія є незворотною.
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Скасувати</button>
-                    <form action="{% url 'delete_profile' %}" method="post" id="deleteForm">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-danger">Видалити профіль</button>
-                    </form>
                 </div>
             </div>
         </div>

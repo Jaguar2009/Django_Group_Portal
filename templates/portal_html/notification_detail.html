@@ -1,0 +1,21 @@
+{% extends 'base_group.html' %}
+
+{% block title %}{{ notification.title }} - Деталі{% endblock %}
+
+{% block body %}
+<div class="container my-5">
+    <div class="card shadow-lg p-4">
+        {% if notification.image %}
+        <img src="{{ notification.image.url }}" class="card-img-top mb-4" alt="{{ notification.title }}" style="max-height: 500px; object-fit: cover;">
+        {% endif %}
+        <div class="card-body">
+            <h2 class="card-title text-center text-primary">{{ notification.title }}</h2>
+            <p class="card-text text-muted">{{ notification.description }}</p>
+            <p class="text-muted"><strong>Дата створення:</strong> {{ notification.created_at|date:"d.m.Y H:i" }}</p>
+        </div>
+    </div>
+    <div class="text-center mt-4">
+        <a href="{% url 'group_notifications' group.id %}" class="btn btn-secondary">Назад до списку</a>
+    </div>
+</div>
+{% endblock %}

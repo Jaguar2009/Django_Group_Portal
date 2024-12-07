@@ -17,7 +17,9 @@
             <h1 class="card-title">{{ gallery_item.title }}</h1>
             <p class="card-text">{{ gallery_item.description }}</p>
             <p class="text-muted">
-                <strong>Автор:</strong> {{ gallery_item.author.username }} |
+                <strong>Автор:</strong> <a href="{% url 'user_profile' gallery_item.author.id %}" class="me-2">
+                                            <img src="{{ gallery_item.author.avatar.url }}" alt="{{ gallery_item.author.first_name }}" class="rounded-circle" style="width: 40px; height: 40px;">
+                                        </a> {{ gallery_item.author.first_name }} |
                 <strong>Завантажено:</strong> {{ gallery_item.uploaded_at|date:"d.m.Y H:i" }}
                 {% if request.user == gallery_item.author %}
                 <a href="{% url 'edit_gallery_item' gallery_item.id %}" class="btn btn-primary">Редагувати пост</a>
@@ -32,7 +34,17 @@
         {% for comment in comments %}
             <div class="card mb-3">
                 <div class="card-body">
-                    <p><strong>{{ comment.author.username }}:</strong> {{ comment.content }}</p>
+                    <div class="d-flex align-items-center">
+                        <!-- Іконка користувача -->
+                        <a href="{% url 'user_profile' comment.author.id %}" class="me-2">
+                            <img src="{{ comment.author.avatar.url }}" alt="{{ comment.author.first_name }}" class="rounded-circle" style="width: 40px; height: 40px;">
+                        </a>
+                        <!-- Ім'я користувача і текст коментаря -->
+                        <p><strong>{{ comment.author.first_name }}:</strong> {{ comment.content }}</p>
+                        {% if comment.author == gallery_item.author %}
+                            <span class="text-primary">-- <em>Автор поста</em></span>
+                        {% endif %}
+                    </div>
                     <p class="text-muted"><small>Дата: {{ comment.created_at|date:"d.m.Y H:i" }}</small></p>
 
                     {% if request.user == comment.author %}
@@ -40,12 +52,20 @@
                         <button class="btn btn-link btn-sm" data-bs-toggle="collapse" data-bs-target="#editCommentForm{{ comment.id }}">Редагувати</button>
 
                         <!-- Форма для редагування коментаря -->
-                        <div id="editCommentForm{{ comment.id }}" class="collapse mt-2">
+                        <div id="editCommentForm{{ comment.id }}" class="collapse mt-3">
                             <form method="post" action="{% url 'gallery_item_detail' gallery_item.id %}">
                                 {% csrf_token %}
-                                <textarea name="content" class="form-control" rows="2">{{ comment.content }}</textarea>
+                                <div class="form-group">
+                                    <label for="commentContent{{ comment.id }}" class="form-label">Редагувати коментар:</label>
+                                    <textarea id="commentContent{{ comment.id }}" name="content" class="form-control" rows="3" required>{{ comment.content }}</textarea>
+                                </div>
                                 <input type="hidden" name="comment_id" value="{{ comment.id }}">
-                                <button type="submit" class="btn btn-primary btn-sm mt-2">Зберегти зміни</button>
+                                <div class="d-flex justify-content-end mt-2">
+                                    <button type="submit" class="btn btn-primary btn-sm">Зберегти зміни</button>
+                                    <button type="button" class="btn btn-secondary btn-sm ms-2" data-bs-toggle="collapse" data-bs-target="#editCommentForm{{ comment.id }}">
+                                        Скасувати
+                                    </button>
+                                </div>
                             </form>
                         </div>
 
@@ -89,9 +109,19 @@
 
                     <!-- Відображення відповідей -->
                     {% for reply in comment.replies.all %}
-                        <div class="card mt-2 ms-4">
+                        <div class="card mb-3">
                             <div class="card-body">
-                                <p><strong>{{ reply.author.username }}:</strong> {{ reply.content }}</p>
+                                <div class="d-flex align-items-center">
+                                    <!-- Іконка користувача -->
+                                    <a href="{% url 'user_profile' reply.author.id %}" class="me-2">
+                                        <img src="{{ reply.author.avatar.url }}" alt="{{ reply.author.first_name }}" class="rounded-circle" style="width: 40px; height: 40px;">
+                                    </a>
+                                    <!-- Ім'я користувача і текст коментаря -->
+                                    <p><strong>{{ reply.author.first_name }}:</strong> {{ reply.content }}</p>
+                                    {% if reply.author == gallery_item.author %}
+                                        <span class="text-primary">-- <em>Автор поста</em></span>
+                                    {% endif %}
+                                </div>
                                 <p class="text-muted"><small>Дата: {{ reply.created_at|date:"d.m.Y H:i" }}</small></p>
 
                                 {% if request.user == reply.author %}
@@ -99,12 +129,20 @@
                                     <button class="btn btn-link btn-sm" data-bs-toggle="collapse" data-bs-target="#editReplyForm{{ reply.id }}">Редагувати</button>
 
                                     <!-- Форма для редагування відповіді -->
-                                    <div id="editReplyForm{{ reply.id }}" class="collapse mt-2">
+                                    <div id="editReplyForm{{ reply.id }}" class="collapse mt-3">
                                         <form method="post" action="{% url 'gallery_item_detail' gallery_item.id %}">
                                             {% csrf_token %}
-                                            <textarea name="content" class="form-control" rows="2">{{ reply.content }}</textarea>
+                                            <div class="form-group">
+                                                <label for="replyContent{{ reply.id }}" class="form-label">Редагувати відповідь:</label>
+                                                <textarea id="replyContent{{ reply.id }}" name="content" class="form-control" rows="3" required>{{ reply.content }}</textarea>
+                                            </div>
                                             <input type="hidden" name="comment_id" value="{{ reply.id }}">
-                                            <button type="submit" class="btn btn-primary btn-sm mt-2">Зберегти зміни</button>
+                                            <div class="d-flex justify-content-end mt-2">
+                                                <button type="submit" class="btn btn-primary btn-sm">Зберегти зміни</button>
+                                                <button type="button" class="btn btn-secondary btn-sm ms-2" data-bs-toggle="collapse" data-bs-target="#editReplyForm{{ reply.id }}">
+                                                    Скасувати
+                                                </button>
+                                            </div>
                                         </form>
                                     </div>
 

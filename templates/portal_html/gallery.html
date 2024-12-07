@@ -4,7 +4,6 @@
 
 {% block body %}
     <h1>Галерея</h1>
-    <a href="{% url 'create_post_gallery' group.id %}">Додати елемент до галереї</a>
     <form method="get" action="{% url 'group_gallery' group_id=group.id %}" class="mb-4">
         <div class="row">
             <div class="col-md-6">

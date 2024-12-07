@@ -3,42 +3,42 @@
 {% block title %}Список опитувань{% endblock %}
 
 {% block body %}
-<h2>Список опитувань</h2>
-<table class="table">
-    <thead>
-        <tr>
-            <th>Назва</th>
-            <th>Опис</th>
-            <th>Додати зображення</th>
-            <th>Кількість питань</th>
-            <th>Кількість учасників</th>
-            <th>Діє до</th>
-            <th>Дії</th>
-        </tr>
-    </thead>
-    <tbody>
+
+<form method="GET" action="{% url 'group_surveys' group.id %}" class="mb-4">
+    <div class="input-group">
+        <input type="text" name="search" class="form-control" placeholder="Пошук за назвою або описом" value="{{ request.GET.search }}">
+        <button class="btn btn-primary" type="submit">Пошук</button>
+    </div>
+</form>
+
+<div class="container mt-4">
+    <h2 class="mb-4">Список опитувань</h2>
+    <div class="row">
         {% for survey in surveys %}
-            <tr>
-                <td>{{ survey.title }}</td>
-                <td>{{ survey.description }}</td>
-                <td>
-                    {% if survey.image %}
-                        <img src="{{ survey.image.url }}" alt="{{ survey.title }}" style="width: 100px; height: auto;">
-                    {% else %}
-                        Немає зображення
-                    {% endif %}
-                </td>
-                <td>{{ survey.question_count }}</td>
-                <td>{{ survey.participant_count }}</td>
-                <td>{{ survey.active_until|date:"d.m.Y H:i" }}</td>
-                <td>
-                    {% if user.is_authenticated %}
-                        <a href="{% url 'take_survey' survey.id %}" class="btn btn-success">Почати опитування</a>
-                        <a href="{% url 'user_survey_answers' survey.id user.id %}" class="btn btn-primary">Переглянути мої відповіді</a>
-                    {% endif %}
-                </td>
-            </tr>
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 shadow-sm">
+                {% if survey.image %}
+                <img src="{{ survey.image.url }}" class="card-img-top" alt="{{ survey.title }}" style="max-height: 200px; object-fit: cover;">
+                {% endif %}
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title text-truncate">{{ survey.title }}</h5>
+                    <p class="card-text text-muted">
+                        {{ survey.description|slice:":150" }}{% if survey.description|length > 150 %}...{% endif %}
+                    </p>
+                    <p class="text-muted"><strong>Діє до:</strong> {{ survey.active_until|date:"d.m.Y H:i" }}</p>
+                    <div class="mt-auto">
+                        {% if user.is_authenticated %}
+                        <a href="{% url 'take_survey' survey.id %}" class="btn btn-success btn-sm w-100 mb-2">Почати опитування</a>
+                        <a href="{% url 'user_survey_answers' survey.id user.id %}" class="btn btn-primary btn-sm w-100">Мої відповіді</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
         {% endfor %}
-    </tbody>
-</table>
+    </div>
+    {% if not surveys %}
+    <p class="text-muted">Немає доступних опитувань.</p>
+    {% endif %}
+</div>
 {% endblock %}

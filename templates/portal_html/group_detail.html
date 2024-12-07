@@ -5,7 +5,63 @@
 {% endblock %}
 
 {% block body %}
-  <h2>Про групу</h2>
-  <p>{{ group.description }}</p>
-  <img src="{{ group.image.url }}" alt="{{ group.name }}" width="200">
+<div class="container">
+  <!-- Назва групи -->
+  <div class="text-center my-5">
+    <h1 class="display-4">{{ group.name }}</h1>
+  </div>
+
+  <!-- Карточка -->
+  <div class="card shadow border-primary mb-5" style="max-width: 100%;">
+    <div class="row g-0">
+      <!-- Ліва частина: Картинка -->
+      <div class="col-md-5">
+        {% if group.image %}
+        <img src="{{ group.image.url }}" alt="{{ group.name }}" class="img-fluid rounded-start" style="width: 100%; height: 100%; object-fit: cover;">
+        {% else %}
+        <div class="placeholder bg-secondary text-white d-flex align-items-center justify-content-center" style="height: 100%; min-height: 300px;">
+          <p>Немає зображення</p>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Права частина: Текст -->
+      <div class="col-md-7">
+        <div class="card-body">
+          <p class="card-text" style="text-align: justify; text-wrap: balance;">
+            {{ group.description|linebreaksbr }}
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Кнопка виходу -->
+  {% if not is_admin %}
+  <div class="text-center">
+    <button type="button" class="btn btn-danger btn-lg" data-bs-toggle="modal" data-bs-target="#leaveGroupModal">
+      Вийти з групи
+    </button>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Модальне вікно підтвердження -->
+<div class="modal fade" id="leaveGroupModal" tabindex="-1" aria-labelledby="leaveGroupModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="leaveGroupModalLabel">Підтвердження виходу</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        Ви дійсно хочете вийти з групи "{{ group.name }}"?
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Скасувати</button>
+        <a href="{% url 'leave_group' group.id %}" class="btn btn-danger">Вийти</a>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}

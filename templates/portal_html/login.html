@@ -3,10 +3,47 @@
 {% block title %}Логін{% endblock %}
 
 {% block body %}
-<h2>Логін</h2>
-<form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Увійти</button>
-</form>
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <h2 class="text-center">Логін</h2>
+            <form method="POST" class="mt-4">
+                {% csrf_token %}
+
+                <div class="text-danger text-center">
+                    {% for error in form.non_field_errors %}
+                        {{ error }}<br>
+                    {% endfor %}
+                </div>
+
+                <div class="form-group mb-3">
+                    <label>Електронна пошта:</label>
+                    <input type="email" class="form-control" name="email" required value="{{ form.email.value|default:'' }}">
+                    <div class="text-danger text-center">
+                        {% for error in form.email.errors %}
+                            {{ error }}<br>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label>Пароль:</label>
+                    <input type="password" class="form-control" name="password" required>
+                    <div class="text-danger text-center">
+                        {% for error in form.password.errors %}
+                            {{ error }}<br>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="text-center">
+                    <button type="submit" class="btn btn-primary">Увійти</button>
+                </div>
+                <div class="text-center mt-3">
+                    <p>Якщо у вас немає акаунту, <a href="{% url 'register' %}">зареєструйтесь</a>.</p>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock %}

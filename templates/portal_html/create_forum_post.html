@@ -7,7 +7,48 @@
 
 <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
-    {{ form.as_p }}
+    <div class="form-group">
+        {{ form.title.label_tag }} {{ form.title }}
+        {% if form.title.errors %}
+            <div class="text-danger">{{ form.title.errors }}</div>
+        {% endif %}
+    </div>
+
+    <div class="form-group">
+        {{ form.image.label_tag }} {{ form.image }}
+        {% if form.image.errors %}
+            <div class="text-danger">{{ form.image.errors }}</div>
+        {% endif %}
+    </div>
+
+    <div class="form-group">
+        {{ form.files.label_tag }} {{ form.files }}
+        {% if form.files.errors %}
+            <div class="text-danger">{{ form.files.errors }}</div>
+        {% endif %}
+    </div>
+
+    <div class="form-group">
+        {{ form.content.label_tag }} {{ form.content }}
+        {% if form.content.errors %}
+            <div class="text-danger">{{ form.content.errors }}</div>
+        {% endif %}
+    </div>
+
+    <div class="form-group">
+        {{ form.status.label_tag }} {{ form.status }}
+        {% if form.status.errors %}
+            <div class="text-danger">{{ form.status.errors }}</div>
+        {% endif %}
+    </div>
+
+    <div class="form-group">
+        {{ form.access.label_tag }} {{ form.access }}
+        {% if form.access.errors %}
+            <div class="text-danger">{{ form.access.errors }}</div>
+        {% endif %}
+    </div>
+
     <button type="submit" class="btn btn-primary">Опублікувати</button>
 </form>
 {% endblock %}

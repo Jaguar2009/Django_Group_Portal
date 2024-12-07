@@ -1,24 +1,40 @@
 {% extends 'base_group.html' %}
 
-{% block title %}Новини{% endblock %}
+{% block title %}Новини та Оголошення{% endblock %}
 
 {% block body %}
-<h2>Оголошення та новини</h2>
 
-{% if notifications %}
-    <div class="list-group">
-        {% for notification in notifications %}
-            <div class="list-group-item">
-                <h5>Назва: {{ notification.title }}</h5>
-                <p>Опис:{{ notification.description }}</p>
-                {% if notification.image %}
-                    <img src="{{ notification.image.url }}" alt="{{ notification.title }}" style="width: 100px; height: auto;">
-                {% endif %}
-                <p><strong>Дата створення:</strong> {{ notification.created_at|date:"d.m.Y H:i" }}</p>
-            </div>
-        {% endfor %}
+<form method="get" class="mb-4">
+    <div class="input-group">
+        <input type="text" name="q" class="form-control" placeholder="Пошук за назвою" value="{{ search_query }}">
+        <button class="btn btn-primary" type="submit">Пошук</button>
     </div>
-{% else %}
-    <p>Немає новин.</p>
-{% endif %}
+</form>
+
+<div class="container my-4">
+    <h1 class="text-center mb-4">Оголошення та Новини</h1>
+
+    {% if notifications %}
+        <div class="row">
+            {% for notification in notifications %}
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="card shadow-sm h-100">
+                        {% if notification.image %}
+                            <img src="{{ notification.image.url }}" class="card-img-top" alt="{{ notification.title }}" style="height: 200px; object-fit: cover;">
+                        {% endif %}
+                        <div class="card-body">
+                            <h5 class="card-title text-primary">{{ notification.title }}</h5>
+                            <p class="card-text text-muted" style="text-align: justify; text-wrap: balance;">
+                                {{ notification.description|truncatechars:150 }}
+                            </p>
+                        </div>
+                        <a href="{% url 'notification_detail' notification.id %}" class="btn btn-primary btn-sm">Деталі</a>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="text-center text-muted">Наразі немає новин або оголошень.</p>
+    {% endif %}
+</div>
 {% endblock %}

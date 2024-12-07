@@ -1,10 +1,52 @@
 {% extends 'base.html' %}
 
 {% block body %}
-  <h2>Створити групу</h2>
-  <form method="post" enctype="multipart/form-data">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Створити</button>
-  </form>
+<div class="container">
+  <main>
+    <div class="py-5 text-center">
+      <h2>Створення нової групи</h2>
+      <p class="lead">Заповніть форму для створення нової групи</p>
+    </div>
+
+    <div class="row justify-content-center">
+      <div class="col-md-7 col-lg-8">
+        <form method="POST" enctype="multipart/form-data" novalidate>
+          {% csrf_token %}
+
+          <!-- Назва групи -->
+          <div class="mb-3">
+            <label for="{{ form.name.id_for_label }}" class="form-label">Назва групи</label>
+            {{ form.name }}
+            <div class="text-danger">
+              {{ form.name.errors }}
+            </div>
+          </div>
+
+          <!-- Опис групи -->
+          <div class="mb-3">
+            <label for="{{ form.description.id_for_label }}" class="form-label">Опис групи</label>
+            {{ form.description }}
+            <div class="text-danger">
+              {{ form.description.errors }}
+            </div>
+          </div>
+
+          <!-- Зображення групи (опціонально) -->
+          <div class="mb-3">
+            <label for="{{ form.image.id_for_label }}" class="form-label">Зображення групи (опціонально)</label>
+            {{ form.image }}
+            <small class="form-text text-muted">Ви можете створити групу без зображення.</small>
+            <div class="text-danger">
+              {{ form.image.errors }}
+            </div>
+          </div>
+
+          <!-- Кнопки -->
+          <button type="submit" class="w-100 btn btn-primary btn-lg">Створити групу</button>
+          <a href="{% url 'home' %}" class="w-100 btn btn-secondary btn-lg mt-2">Скасувати</a>
+        </form>
+      </div>
+    </div>
+  </main>
+</div>
 {% endblock %}

@@ -1,0 +1,16 @@
+<!-- templates/edit_group.html -->
+{% extends 'base_group.html' %}
+
+{% block title %}Редагувати групу: {{ group.name }}{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <h1>Редагувати Групу: {{ group.name }}</h1>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-primary">Зберегти зміни</button>
+        <a href="{% url 'group_detail' group.id %}" class="btn btn-secondary">Скасувати</a>
+    </form>
+</div>
+{% endblock %}

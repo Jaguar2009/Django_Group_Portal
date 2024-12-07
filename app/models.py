@@ -122,6 +122,17 @@ class SurveyResult(models.Model):
         unique_together = ('user', 'survey', 'question')
 
 
+class UserNews(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='news')  # Прив'язка до користувача
+    title = models.CharField(max_length=255)  # Заголовок новини
+    description = models.TextField()  # Опис новини
+    image = models.ImageField(upload_to='user_news_images/', blank=True, null=True)  # Картинка для новини
+    created_at = models.DateTimeField(default=timezone.now)  # Час створення новини
+
+    def __str__(self):
+        return f"Новина для {self.user.email}: {self.title}"
+
+
 class Notification(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField()
@@ -259,16 +270,16 @@ class Vote(models.Model):
 
 
 class Ban(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    message = models.TextField()
-    end_date = models.DateTimeField()
-    created_at = models.DateTimeField(default=timezone.now)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='bans')
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name='bans')
+    end_date = models.DateTimeField()  # Дата завершення бану
+    created_at = models.DateTimeField(default=timezone.now)  # Час створення бану
 
     def __str__(self):
-        return f"Ban for {self.user.email} until {self.end_date}"
+        return f"Ban for {self.user.email} in group {self.group.name} until {self.end_date}"
 
     def is_active(self):
-        return timezone.now() < self.end_date  # Перевірка, чи ще діє бан
+        return timezone.now() < self.end_date  # Перевірка, чи бан ще активний
 
 
 class GalleryItem(models.Model):
